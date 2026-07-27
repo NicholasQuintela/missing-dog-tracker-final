@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { ArrowLeft, Bell, CheckCheck, MessageCircle, PawPrint, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ChatDialog } from "@/components/chat-dialog"
+import { FoundClaimReview } from "@/components/found-claim-review"
 import { createClient } from "@/lib/supabase/client"
 import type { Notification } from "@/lib/types"
 
@@ -31,11 +32,13 @@ export function NotificationsPageClient() {
   const [items, setItems] = useState<Notification[]>([])
   const [tab, setTab] = useState<Tab>("all")
   const [chatId, setChatId] = useState<string | null>(null)
+  const [claimId, setClaimId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     setChatId(params.get("chat"))
+    setClaimId(params.get("claim"))
     supabase.auth.getUser().then(({ data }) => {
       const id = data.user?.id || null
       setUserId(id)
@@ -59,7 +62,16 @@ export function NotificationsPageClient() {
       await supabase.from("notifications").update({ read_at: now }).eq("id", item.id)
       setItems(prev => prev.map(n => n.id === item.id ? { ...n, read_at: now } : n))
     }
-    if (item.conversation_id) setChatId(item.conversation_id)
+    if (item.found_claim_id) {
+      setClaimId(item.found_claim_id)
+      setChatId(null)
+      window.history.replaceState({}, "", `/notifications?claim=${item.found_claim_id}`)
+      return
+    }
+    if (item.conversation_id) {
+      setChatId(item.conversation_id)
+      window.history.replaceState({}, "", `/notifications?chat=${item.conversation_id}`)
+    }
   }
 
   async function markAll() {
@@ -83,7 +95,7 @@ export function NotificationsPageClient() {
     </header>
 
     <div className="mx-auto max-w-4xl p-4 sm:p-6">
-      {loading ? <p className="py-16 text-center text-muted-foreground">Loading activity…</p> : filtered.length === 0 ? <div className="rounded-2xl border border-dashed p-12 text-center"><Bell className="mx-auto mb-3 size-8 text-muted-foreground" /><p className="font-semibold">No activity in this tab yet.</p></div> : <div className="space-y-3">{filtered.map(item => <button key={item.id} onClick={() => openItem(item)} className={`flex w-full gap-3 rounded-2xl border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${!item.read_at ? "border-primary/40 bg-primary/5" : "bg-card"}`}><span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted"><Icon type={item.type} /></span><span className="min-w-0 flex-1"><span className="flex items-start justify-between gap-3"><span className="font-bold">{item.title}</span>{!item.read_at && <span className="mt-1 size-2 shrink-0 rounded-full bg-primary" />}</span><span className="mt-1 block text-sm text-muted-foreground">{item.message}</span><span className="mt-2 block text-xs text-muted-foreground">{new Date(item.created_at).toLocaleString()}</span>{item.conversation_id && <span className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-primary"><MessageCircle className="size-3" /> Open private chat</span>}</span></button>)}</div>}
+      {claimId && userId ? <FoundClaimReview claimId={claimId} userId={userId} onOpenChat={(id)=>{setChatId(id);setClaimId(null);window.history.replaceState({}, "", `/notifications?chat=${id}`)}} onClose={()=>{setClaimId(null);window.history.replaceState({}, "", "/notifications")}} /> : loading ? <p className="py-16 text-center text-muted-foreground">Loading activity…</p> : filtered.length === 0 ? <div className="rounded-2xl border border-dashed p-12 text-center"><Bell className="mx-auto mb-3 size-8 text-muted-foreground" /><p className="font-semibold">No activity in this tab yet.</p></div> : <div className="space-y-3">{filtered.map(item => <button key={item.id} onClick={() => openItem(item)} className={`flex w-full gap-3 rounded-2xl border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${!item.read_at ? "border-primary/40 bg-primary/5" : "bg-card"}`}><span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted"><Icon type={item.type} /></span><span className="min-w-0 flex-1"><span className="flex items-start justify-between gap-3"><span className="font-bold">{item.title}</span>{!item.read_at && <span className="mt-1 size-2 shrink-0 rounded-full bg-primary" />}</span><span className="mt-1 block text-sm text-muted-foreground">{item.message}</span><span className="mt-2 block text-xs text-muted-foreground">{new Date(item.created_at).toLocaleString()}</span>{item.conversation_id && <span className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-primary"><MessageCircle className="size-3" /> Open private chat</span>}</span></button>)}</div>}
     </div>
     {userId && <ChatDialog open={!!chatId} onClose={() => setChatId(null)} conversationId={chatId} userId={userId} />}
   </main>

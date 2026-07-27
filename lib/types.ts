@@ -52,6 +52,7 @@ export type Notification = {
   actor_id: string | null
   dog_id: string | null
   conversation_id: string | null
+  found_claim_id?: string | null
   type: string
   title: string
   message: string

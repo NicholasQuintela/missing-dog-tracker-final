@@ -57,9 +57,8 @@ export function FoundDialog({ open, onClose, dog, onFound }: Props) {
       }).select().single()
       if (claimError) throw claimError
 
-      const { data: conversationId } = await supabase.rpc("get_my_case_conversation", { p_dog_id: dog.id })
       alert("Your found claim was sent to the owner for confirmation.")
-      onFound(dog, (conversationId as string | null) || null)
+      onFound(dog, null)
       reset()
       onClose()
     } catch (err) {
