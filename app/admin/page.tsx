@@ -1,18 +1,25 @@
-"use client"
-import { useEffect, useMemo, useState } from "react"
-import Link from "next/link"
-import { ShieldCheck, Users, PawPrint, Eye, MessageCircleWarning } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
-import { Button } from "@/components/ui/button"
+import { FinderApp } from "@/components/finder-app"
+import { createClient } from "@/lib/supabase/server"
+import type { MissingDog, Volunteer, Sighting } from "@/lib/types"
 
-type Stats={users:number;reports:number;active_reports:number;sightings:number;conversations:number;pending_abuse:number}
-type Abuse={id:string;target_type:string;target_id:string;reason:string;status:string;created_at:string;reporter_id:string}
-export default function AdminPage(){
- const supabase=useMemo(()=>createClient(),[]); const [loading,setLoading]=useState(true); const [allowed,setAllowed]=useState(false); const [stats,setStats]=useState<Stats|null>(null); const [items,setItems]=useState<Abuse[]>([]); const [error,setError]=useState("")
- useEffect(()=>{(async()=>{const {data:{user}}=await supabase.auth.getUser(); if(!user){setLoading(false);return} const {data:role}=await supabase.from("admins").select("role").eq("user_id",user.id).maybeSingle(); if(!role){setLoading(false);return} setAllowed(true); const [{data:s,error:e},{data:a}]=await Promise.all([supabase.rpc("get_pet_alert_admin_stats"),supabase.from("abuse_reports").select("*").order("created_at",{ascending:false}).limit(100)]); if(e)setError(e.message); setStats(s as Stats); setItems((a as Abuse[])||[]); setLoading(false)})()},[supabase])
- async function update(id:string,status:string){const {error}=await supabase.from("abuse_reports").update({status,reviewed_at:new Date().toISOString()}).eq("id",id); if(error)setError(error.message); else setItems(v=>v.map(x=>x.id===id?{...x,status}:x))}
- if(loading)return <main className="p-8">Checking admin access…</main>
- if(!allowed)return <main className="mx-auto max-w-xl p-8"><h1 className="text-2xl font-bold">Access denied</h1><p className="mt-2 text-muted-foreground">This page is available only to Pet Alert PH administrators.</p><Button asChild className="mt-5"><Link href="/">Return home</Link></Button></main>
- const cards=[['Users',stats?.users,Users],['Reports',stats?.reports,PawPrint],['Active reports',stats?.active_reports,ShieldCheck],['Sightings',stats?.sightings,Eye],['Conversations',stats?.conversations,MessageCircleWarning],['Pending abuse',stats?.pending_abuse,MessageCircleWarning]] as const
- return <main className="mx-auto max-w-6xl p-5 sm:p-8"><div className="flex items-center justify-between"><div><h1 className="text-3xl font-extrabold">Pet Alert PH Admin</h1><p className="text-muted-foreground">Moderation and platform overview.</p></div><Button asChild variant="outline"><Link href="/">Home</Link></Button></div>{error&&<p className="mt-4 rounded-lg bg-destructive/10 p-3 text-destructive">{error}</p>}<div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{cards.map(([label,value,Icon])=><div key={label} className="rounded-xl border bg-card p-4"><Icon className="size-5"/><p className="mt-3 text-sm text-muted-foreground">{label}</p><p className="text-3xl font-bold">{value??'—'}</p></div>)}</div><section className="mt-8"><h2 className="text-xl font-bold">Abuse reports</h2><div className="mt-3 space-y-3">{items.length===0?<p className="text-muted-foreground">No abuse reports.</p>:items.map(x=><article key={x.id} className="rounded-xl border bg-card p-4"><div className="flex flex-wrap justify-between gap-2"><div><p className="font-bold">{x.target_type}</p><p className="text-xs text-muted-foreground">Target: {x.target_id}</p></div><span className="rounded-full bg-muted px-3 py-1 text-xs">{x.status}</span></div><p className="mt-3 text-sm">{x.reason}</p><div className="mt-4 flex gap-2"><Button size="sm" onClick={()=>update(x.id,'reviewing')}>Reviewing</Button><Button size="sm" variant="outline" onClick={()=>update(x.id,'resolved')}>Resolve</Button><Button size="sm" variant="ghost" onClick={()=>update(x.id,'dismissed')}>Dismiss</Button></div></article>)}</div></section></main>
+export const dynamic = "force-dynamic"
+
+export default async function Page() {
+  const supabase = await createClient()
+
+  const { data: dogs } = await supabase
+    .from("missing_dogs")
+    .select("*")
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+
+  const { data: volunteers } = await supabase.from("volunteers").select("dog_id")
+  const { data: sightings } = await supabase.from("sightings").select("*").eq("status", "active").order("created_at", { ascending: false })
+
+  const counts: Record<string, number> = {}
+  for (const v of (volunteers as Pick<Volunteer, "dog_id">[]) || []) {
+    counts[v.dog_id] = (counts[v.dog_id] || 0) + 1
+  }
+
+  return <FinderApp initialDogs={(dogs as MissingDog[]) || []} initialCounts={counts} initialSightings={(sightings as Sighting[]) || []} />
 }
