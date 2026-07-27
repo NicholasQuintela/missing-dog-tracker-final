@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
-import { PawPrint, Plus, Search, LocateFixed, User, Eye } from "lucide-react"
+import { PawPrint, Plus, Search, LocateFixed, User, Eye, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DogCard } from "@/components/dog-card"
 import { ReportDialog } from "@/components/report-dialog"
@@ -14,6 +14,7 @@ import { SightingDetailDialog } from "@/components/sighting-detail-dialog"
 import { AuthDialog } from "@/components/auth-dialog"
 import { NotificationBell } from "@/components/notifications"
 import { AccountDialog } from "@/components/account-dialog"
+import { TermsSafetyButton } from "@/components/terms-safety-button"
 import { createClient } from "@/lib/supabase/client"
 import type { MissingDog, Volunteer, Sighting } from "@/lib/types"
 
@@ -31,11 +32,22 @@ export function FinderApp({ initialDogs, initialCounts, initialSightings }: Prop
   const [center, setCenter] = useState<[number, number]>(initialDogs.length ? [initialDogs[0].latitude, initialDogs[0].longitude] : DEFAULT_CENTER)
   const [recenterTrigger, setRecenterTrigger] = useState(0)
   const [user, setUser] = useState<{ id:string; email?:string } | null>(null)
+  const [adminRole, setAdminRole] = useState<string | null>(null)
   const [authOpen,setAuthOpen]=useState(false), [accountOpen,setAccountOpen]=useState(false), [reportOpen,setReportOpen]=useState(false), [sightingOpen,setSightingOpen]=useState(false)
   const [detailDog,setDetailDog]=useState<MissingDog|null>(null), [detailSighting,setDetailSighting]=useState<Sighting|null>(null), [volunteerDog,setVolunteerDog]=useState<MissingDog|null>(null), [foundDog,setFoundDog]=useState<MissingDog|null>(null)
   const [sightingDogId,setSightingDogId]=useState<string|null>(null)
 
-  useEffect(()=>{ supabase.auth.getUser().then(({data})=>setUser(data.user?{id:data.user.id,email:data.user.email}:null)); const {data:l}=supabase.auth.onAuthStateChange((_e,s)=>setUser(s?.user?{id:s.user.id,email:s.user.email}:null)); return()=>l.subscription.unsubscribe() },[supabase])
+  useEffect(()=>{
+    async function applyUser(nextUser:{id:string;email?:string}|null){
+      setUser(nextUser)
+      if(!nextUser){setAdminRole(null);return}
+      const roleResult=await supabase.rpc("get_my_pet_alert_admin_role")
+      setAdminRole(typeof roleResult.data==="string"?roleResult.data:null)
+    }
+    supabase.auth.getUser().then(({data})=>void applyUser(data.user?{id:data.user.id,email:data.user.email}:null))
+    const {data:l}=supabase.auth.onAuthStateChange((_e,s)=>void applyUser(s?.user?{id:s.user.id,email:s.user.email}:null))
+    return()=>l.subscription.unsubscribe()
+  },[supabase])
   useEffect(()=>{
     const params=new URLSearchParams(window.location.search); const rid=params.get("report"), sid=params.get("sighting")
     if(rid){const d=initialDogs.find(x=>x.id===rid); if(d)setDetailDog(d)}
@@ -60,7 +72,7 @@ export function FinderApp({ initialDogs, initialCounts, initialSightings }: Prop
     <header className="relative z-40 flex items-center justify-between gap-3 border-b bg-card/90 px-4 py-3 backdrop-blur sm:px-6">
       <div className="flex items-center gap-2.5"><div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground"><PawPrint className="size-5"/></div><div><h1 className="font-serif text-lg font-extrabold">Pet Alert PH</h1><p className="hidden text-xs text-muted-foreground sm:block">Bringing lost dogs home, together</p></div></div>
       <div className="flex items-center gap-2"><span className="hidden text-xs text-muted-foreground lg:block">{dogs.length} reports · {sightings.length} sightings · {totalHelpers} helping</span>
-        {user&&<NotificationBell userId={user.id}/>} {user?<Button variant="outline" size="icon" className="rounded-full" onClick={()=>setAccountOpen(true)}><User className="size-4"/></Button>:<Button variant="outline" onClick={()=>setAuthOpen(true)}>Log in</Button>}
+        {adminRole&&<Button variant="outline" onClick={()=>window.open("/admin/moderation","_blank","noopener,noreferrer")}><ShieldCheck className="size-4"/><span className="hidden md:inline">Moderation</span></Button>} {user&&<NotificationBell userId={user.id}/>} {user?<Button variant="outline" size="icon" className="rounded-full" onClick={()=>setAccountOpen(true)}><User className="size-4"/></Button>:<Button variant="outline" onClick={()=>setAuthOpen(true)}>Log in</Button>}
         <Button type="button" variant="outline" onClick={() => requireLogin(() => { setSightingDogId(null); setSightingOpen(true) })}><Eye className="size-4"/><span className="hidden sm:inline">Report sighting</span></Button>
         <Button type="button" onClick={()=>requireLogin(()=>setReportOpen(true))}><Plus className="size-4"/><span className="hidden sm:inline">Report missing dog</span><span className="sm:hidden">Report</span></Button>
       </div>
@@ -68,6 +80,7 @@ export function FinderApp({ initialDogs, initialCounts, initialSightings }: Prop
     <div className="flex min-h-0 flex-1 flex-col-reverse md:flex-row"><aside className="flex w-full shrink-0 flex-col border-t bg-background md:h-full md:w-96 md:border-r md:border-t-0"><div className="border-b p-4"><div className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search name, breed, area…" className="h-10 w-full rounded-xl border bg-card pl-9 pr-3 text-sm outline-none"/></div><div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground"><span><span className="inline-block size-2 rounded-full bg-orange-600"/> Missing reports</span><span><span className="inline-block size-2 rounded-full bg-green-600"/> Sightings</span></div></div><div className="flex-1 space-y-3 overflow-y-auto p-4">{filtered.map(d=><DogCard key={d.id} dog={d} volunteerCount={counts[d.id]||0} selected={d.id===selectedId} onClick={()=>selectDog(d)}/>)}</div></aside>
       <main className="relative z-0 min-h-0 flex-1"><DogMap dogs={filtered} sightings={sightings} selectedId={selectedId} onSelect={d=>{setSelectedId(d.id);focus(d.latitude,d.longitude)}} onSelectSighting={s=>{focus(s.latitude,s.longitude);setDetailSighting(s)}} center={center} recenterTrigger={recenterTrigger}/><Button variant="outline" size="icon-lg" onClick={locateMe} className="absolute bottom-6 right-4 z-20 rounded-full bg-card shadow-lg"><LocateFixed className="size-5"/></Button></main>
     </div>
+    <TermsSafetyButton />
     <ReportDialog open={reportOpen} onClose={()=>setReportOpen(false)} defaultCenter={center} onReported={d=>{setDogs(v=>[d,...v]);focus(d.latitude,d.longitude)}}/>
     <SightingDialog open={sightingOpen} onClose={()=>setSightingOpen(false)} defaultCenter={center} dogs={dogs} defaultDogId={sightingDogId} onCreated={(s,chatId)=>{setSightings(v=>[s,...v]);focus(s.latitude,s.longitude);if(chatId) window.location.href=`/notifications?chat=${chatId}`}}/>
     <DogDetailDialog open={!!detailDog} onClose={()=>setDetailDog(null)} dog={detailDog} currentUserId={user?.id} onDeleted={id=>setDogs(v=>v.filter(d=>d.id!==id))} onUpdated={u=>{setDogs(v=>v.map(d=>d.id===u.id?u:d));setDetailDog(u)}} onVolunteer={()=>requireLogin(()=>{setVolunteerDog(detailDog);setDetailDog(null)})} onFound={()=>requireLogin(()=>{setFoundDog(detailDog);setDetailDog(null)})} onSighting={()=>requireLogin(()=>{setSightingDogId(detailDog?.id||null);setSightingOpen(true);setDetailDog(null)})}/>
