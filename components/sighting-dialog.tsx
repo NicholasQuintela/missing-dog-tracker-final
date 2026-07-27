@@ -24,8 +24,16 @@ export function SightingDialog({ open, onClose, defaultCenter, dogs, defaultDogI
   const [point, setPoint] = useState<[number, number]>(defaultCenter)
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [mapInstanceKey, setMapInstanceKey] = useState(0)
 
-  useEffect(() => { if (open) { setDogId(defaultDogId || ""); setPoint(defaultCenter) } }, [open, defaultDogId, defaultCenter])
+  useEffect(() => {
+    if (open) {
+      setDogId(defaultDogId || "")
+      setPoint(defaultCenter)
+      setError(null)
+      setMapInstanceKey((value) => value + 1)
+    }
+  }, [open, defaultDogId, defaultCenter])
 
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setError(null); setSubmitting(true)
@@ -54,7 +62,7 @@ export function SightingDialog({ open, onClose, defaultCenter, dogs, defaultDogI
       <Field label="Sighting title"><input className={inputClass} value={title} onChange={e => setTitle(e.target.value)} placeholder="Brown dog seen near the market" required /></Field>
       <Field label="Details"><textarea className={inputClass + " h-auto py-2"} rows={3} value={description} onChange={e => setDescription(e.target.value)} placeholder="Direction of travel, collar, behavior, landmarks…" /></Field>
       <Field label="Date and time seen"><input className={inputClass} type="datetime-local" value={seenAt} onChange={e => setSeenAt(e.target.value)} required /></Field>
-      <Field label="Pin the sighting location" hint="Tap the map to place the green pin."><div className="h-52 overflow-hidden rounded-xl border"><DogMap dogs={[]} sightings={[]} selectedId={null} onSelect={() => {}} center={point} recenterTrigger={0} pickMode pickKind="sighting" pickedPoint={point} onPick={(lat,lng) => setPoint([lat,lng])} /></div><p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="size-3" />{point[0].toFixed(4)}, {point[1].toFixed(4)}</p></Field>
+      <Field label="Pin the sighting location" hint="Tap the map to place the green pin."><div className="h-52 overflow-hidden rounded-xl border"><DogMap key={`sighting-picker-${mapInstanceKey}`} dogs={[]} sightings={[]} selectedId={null} onSelect={() => {}} center={point} recenterTrigger={0} pickMode pickKind="sighting" pickedPoint={point} onPick={(lat,lng) => setPoint([lat,lng])} /></div><p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="size-3" />{point[0].toFixed(4)}, {point[1].toFixed(4)}</p></Field>
       <Field label="Photo (optional)"><label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed p-3">{photoPreview ? <img src={photoPreview} alt="Sighting preview" className="size-16 rounded-lg object-cover" /> : <ImagePlus className="size-6" />}<span className="text-sm">Choose an image up to 2 MB</span><input className="sr-only" type="file" accept="image/*" onChange={e => { const f=e.target.files?.[0]; if(f){setPhotoFile(f);setPhotoPreview(URL.createObjectURL(f))} }} /></label></Field>
       <Field label="Contact info (optional)"><input className={inputClass} value={contact} onChange={e => setContact(e.target.value)} placeholder="Phone, email, or social handle" /></Field>
       {error && <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}

@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
+import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -13,6 +14,10 @@ type ModalProps = {
 }
 
 export function Modal({ open, onClose, title, description, children }: ModalProps) {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
@@ -26,10 +31,10 @@ export function Modal({ open, onClose, title, description, children }: ModalProp
     }
   }, [open, onClose])
 
-  if (!open) return null
+  if (!mounted || !open) return null
 
-  return (
-    <div className="fixed inset-0 z-[1000] flex items-end justify-center sm:items-center">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-end justify-center sm:items-center">
       <div
         className="absolute inset-0 bg-foreground/40 backdrop-blur-sm animate-in fade-in"
         onClick={onClose}
@@ -52,7 +57,8 @@ export function Modal({ open, onClose, title, description, children }: ModalProp
         </div>
         <div className="overflow-y-auto px-6 py-5">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
