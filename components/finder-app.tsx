@@ -10,6 +10,8 @@ import { VolunteerDialog } from "@/components/volunteer-dialog"
 import { FoundDialog } from "@/components/found-dialog"
 import { DogDetailDialog } from "@/components/dog-detail-dialog"
 import { createClient } from "@/lib/supabase/client"
+import { AuthButton } from "@/components/auth-button"
+import { NotificationBell } from "@/components/notification-bell"
 import type { MissingDog, Volunteer } from "@/lib/types"
 
 const DogMap = dynamic(() => import("@/components/dog-map"), {
@@ -109,7 +111,9 @@ export function FinderApp({ initialDogs, initialCounts }: Props) {
             <p className="hidden text-xs text-muted-foreground sm:block">Bringing lost dogs home, together</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1 sm:gap-3">
+          <NotificationBell />
+          <AuthButton />
           <div className="hidden text-right text-xs text-muted-foreground sm:block">
             <span className="font-bold text-foreground">{dogs.length}</span> searching ·{" "}
             <span className="font-bold text-foreground">{totalHelpers}</span> helping
