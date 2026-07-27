@@ -13,6 +13,7 @@ export type MissingDog = {
   status: string
   created_at: string
   found_by: string | null
+  found_by_user_id?: string | null
   found_photo_url: string | null
   found_photo_path?: string | null
   found_note: string | null
@@ -63,6 +64,8 @@ export type Conversation = {
   dog_id: string
   owner_id: string
   volunteer_id: string
+  source_type?: "volunteer" | "sighting" | "found"
+  source_id?: string | null
   created_at: string
   last_message_at: string
 }

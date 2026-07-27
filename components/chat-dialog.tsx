@@ -39,7 +39,7 @@ export function ChatDialog({ open, onClose, conversationId, userId }: { open: bo
     setSending(false)
   }
 
-  return <Modal open={open} onClose={onClose} title="Private chat" description="Only the dog owner and this volunteer can read this conversation.">
+  return <Modal open={open} onClose={onClose} title="Private chat" description="Only the dog owner and the verified volunteer, sighting reporter, or finder can read this conversation.">
     <div className="flex h-[60vh] flex-col gap-3">
       <div className="flex-1 space-y-2 overflow-y-auto rounded-xl bg-muted/50 p-3">
         {messages.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">No messages yet. Start the conversation.</p>}
