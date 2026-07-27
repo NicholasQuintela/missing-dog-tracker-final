@@ -63,7 +63,7 @@ export function FoundDialog({ open, onClose, dog, onFound }: Props) {
       reset()
       onClose()
     } catch (err) {
-      console.error("[PawFinder] found submit error:", err)
+      console.error("[Pet Alert PH] found submit error:", err)
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.")
     } finally { setSubmitting(false) }
   }

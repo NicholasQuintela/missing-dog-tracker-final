@@ -8,7 +8,7 @@ import type { Sighting } from "@/lib/types"
 type Props = { open:boolean; onClose:()=>void; sighting:Sighting|null; currentUserId?:string|null; onDeleted:(id:string)=>void }
 export function SightingDetailDialog({open,onClose,sighting,currentUserId,onDeleted}:Props){
   if(!sighting) return null
-  async function share(){ const url=`${window.location.origin}/?sighting=${sighting.id}`; if(navigator.share) await navigator.share({title:sighting.title,text:sighting.description||"PawFinder sighting",url}); else {await navigator.clipboard.writeText(url); alert("Sighting link copied.")} }
+  async function share(){ const url=`${window.location.origin}/?sighting=${sighting.id}`; if(navigator.share) await navigator.share({title:sighting.title,text:sighting.description||"Pet Alert PH sighting",url}); else {await navigator.clipboard.writeText(url); alert("Sighting link copied.")} }
   async function remove(){ if(!confirm("Delete this sighting? This cannot be undone.")) return; const supabase=createClient(); const {error}=await supabase.from("sightings").delete().eq("id",sighting.id); if(error){alert(error.message);return} onDeleted(sighting.id);onClose() }
   return <Modal open={open} onClose={onClose} title={sighting.title} description="Community sighting · green map pin"><div className="flex flex-col gap-4">
     {sighting.photo_url && <img src={sighting.photo_url} alt={sighting.title} className="max-h-64 w-full rounded-2xl object-cover" />}

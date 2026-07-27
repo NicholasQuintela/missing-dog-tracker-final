@@ -63,7 +63,7 @@ export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound, onSi
 
   async function shareReport() {
     const url = `${window.location.origin}/?report=${dog.id}`
-    if (navigator.share) await navigator.share({ title: `${dog.name} — PawFinder`, text: `Help find ${dog.name}`, url })
+    if (navigator.share) await navigator.share({ title: `${dog.name} — Pet Alert PH`, text: `Help find ${dog.name}`, url })
     else { await navigator.clipboard.writeText(url); alert("Report link copied.") }
   }
 

@@ -16,7 +16,7 @@ const nunitoSans = Nunito_Sans({
 })
 
 export const metadata: Metadata = {
-  title: 'PawFinder — Help Reunite Lost Dogs',
+  title: 'Pet Alert PH — Help Reunite Lost Dogs',
   description:
     'Report missing dogs, browse a live map of lost pets near you, and volunteer to help bring them home.',
   generator: 'v0.app',

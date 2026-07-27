@@ -1,10 +1,10 @@
-# PawFinder repair deployment
+# Pet Alert PH repair deployment
 
 ## 1. Replace the GitHub repository files
 
 On GitHub, open the repository root, choose **Add file → Upload files**, then upload every file and folder inside this extracted project. Upload the contents, not the ZIP itself.
 
-Use commit message: `Repair PawFinder authentication and notifications`
+Use commit message: `Repair Pet Alert PH authentication and notifications`
 
 ## 2. Verify Vercel environment variables
 

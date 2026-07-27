@@ -217,7 +217,7 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
           />
         </Field>
 
-        <label className="flex items-start gap-2 text-xs text-muted-foreground"><input type="checkbox" className="mt-0.5" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)} /><span>I confirm this information is accurate, I have the right to upload the photo, and I will not use PawFinder for harassment, fraud, or emergencies. I agree to the <a href="/terms" target="_blank" className="font-semibold text-primary underline">Terms</a>.</span></label>
+        <label className="flex items-start gap-2 text-xs text-muted-foreground"><input type="checkbox" className="mt-0.5" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)} /><span>I confirm this information is accurate, I have the right to upload the photo, and I will not use Pet Alert PH for harassment, fraud, or emergencies. I agree to the <a href="/terms" target="_blank" className="font-semibold text-primary underline">Terms</a>.</span></label>
 
         {error && (
           <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">

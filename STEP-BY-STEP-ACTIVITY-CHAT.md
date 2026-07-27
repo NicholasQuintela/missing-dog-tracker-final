@@ -1,4 +1,4 @@
-# PawFinder Activity + Chat Deployment
+# Pet Alert PH Activity + Chat Deployment
 
 ## 1. Run the new SQL
 In Supabase, open **SQL Editor → New query**. Copy everything from `pawfinder-activity-chat-upgrade.sql`, paste it, and click **Run**.

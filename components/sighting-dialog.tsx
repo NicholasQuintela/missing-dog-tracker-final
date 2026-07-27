@@ -53,7 +53,7 @@ export function SightingDialog({ open, onClose, defaultCenter, dogs, defaultDogI
       const { data, error } = await supabase.from("sightings").insert({ reporter_id: user.id, dog_id: dogId || null, title: title.trim(), description: description.trim() || null, contact_info: contact.trim() || null, seen_at: new Date(seenAt).toISOString(), latitude: point[0], longitude: point[1], photo_url, photo_path }).select().single()
       if (error) throw error
       const { data: conversationId } = dogId ? await supabase.rpc("get_my_case_conversation", { p_dog_id: dogId }) : { data: null }; onCreated(data as Sighting, (conversationId as string | null) || null); onClose(); setTitle(""); setDescription(""); setContact(""); setPhotoFile(null); setPhotoPreview(null)
-    } catch (err) { console.error("[PawFinder] sighting submit error:", err); setError(err instanceof Error ? err.message : "Something went wrong.") } finally { setSubmitting(false) }
+    } catch (err) { console.error("[Pet Alert PH] sighting submit error:", err); setError(err instanceof Error ? err.message : "Something went wrong.") } finally { setSubmitting(false) }
   }
 
   return <Modal open={open} onClose={onClose} title="Report a sighting" description="Add a green map pin where you saw a dog that may be missing.">

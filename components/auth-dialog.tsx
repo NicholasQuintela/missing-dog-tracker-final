@@ -43,7 +43,7 @@ export function AuthDialog({ open, onClose }: Props) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={mode === "login" ? "Welcome back" : "Create your PawFinder account"} description={mode === "login" ? "Log in to receive updates about dogs you report." : "Your account lets PawFinder notify you about your lost dog."}>
+    <Modal open={open} onClose={onClose} title={mode === "login" ? "Welcome back" : "Create your Pet Alert PH account"} description={mode === "login" ? "Log in to receive updates about dogs you report." : "Your account lets Pet Alert PH notify you about your lost dog."}>
       <form onSubmit={submit} className="flex flex-col gap-4">
         <Field label="Email" htmlFor="auth-email"><input id="auth-email" type="email" required value={email} onChange={e => setEmail(e.target.value)} className={inputClass} placeholder="you@example.com" /></Field>
         <Field label="Password" htmlFor="auth-password"><input id="auth-password" type="password" required minLength={6} value={password} onChange={e => setPassword(e.target.value)} className={inputClass} placeholder="At least 6 characters" /></Field>

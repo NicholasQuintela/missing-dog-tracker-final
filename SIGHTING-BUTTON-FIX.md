@@ -1,4 +1,4 @@
-# PawFinder sighting button fix
+# Pet Alert PH sighting button fix
 
 This build fixes the sighting form not appearing after clicking **Report sighting**.
 

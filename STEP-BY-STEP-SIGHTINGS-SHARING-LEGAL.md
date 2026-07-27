@@ -1,4 +1,4 @@
-# PawFinder additional upgrade
+# Pet Alert PH additional upgrade
 
 ## 1. Run SQL
 In Supabase SQL Editor, run `pawfinder-sightings-sharing-legal-storage-upgrade.sql` once.
