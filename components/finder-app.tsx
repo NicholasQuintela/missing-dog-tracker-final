@@ -2,16 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
-import { PawPrint, Plus, Search, LocateFixed } from "lucide-react"
+import { PawPrint, Plus, Search, LocateFixed, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DogCard } from "@/components/dog-card"
 import { ReportDialog } from "@/components/report-dialog"
 import { VolunteerDialog } from "@/components/volunteer-dialog"
 import { FoundDialog } from "@/components/found-dialog"
 import { DogDetailDialog } from "@/components/dog-detail-dialog"
+import { AuthDialog } from "@/components/auth-dialog"
+import { NotificationBell } from "@/components/notifications"
+import { AccountDialog } from "@/components/account-dialog"
 import { createClient } from "@/lib/supabase/client"
-import { AuthButton } from "@/components/auth-button"
-import { NotificationBell } from "@/components/notification-bell"
 import type { MissingDog, Volunteer } from "@/lib/types"
 
 const DogMap = dynamic(() => import("@/components/dog-map"), {
@@ -36,11 +37,20 @@ export function FinderApp({ initialDogs, initialCounts }: Props) {
     initialDogs.length ? [initialDogs[0].latitude, initialDogs[0].longitude] : DEFAULT_CENTER,
   )
   const [recenterTrigger, setRecenterTrigger] = useState(0)
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
+  const [authOpen, setAuthOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
 
   const [reportOpen, setReportOpen] = useState(false)
   const [detailDog, setDetailDog] = useState<MissingDog | null>(null)
   const [volunteerDog, setVolunteerDog] = useState<MissingDog | null>(null)
   const [foundDog, setFoundDog] = useState<MissingDog | null>(null)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data.user ? { id: data.user.id, email: data.user.email } : null))
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ? { id: session.user.id, email: session.user.email } : null))
+    return () => listener.subscription.unsubscribe()
+  }, [supabase])
 
   // Realtime: new dogs and new volunteers keep every client in sync.
   useEffect(() => {
@@ -111,14 +121,20 @@ export function FinderApp({ initialDogs, initialCounts }: Props) {
             <p className="hidden text-xs text-muted-foreground sm:block">Bringing lost dogs home, together</p>
           </div>
         </div>
-        <div className="flex items-center gap-1 sm:gap-3">
-          <NotificationBell />
-          <AuthButton />
+        <div className="flex items-center gap-3">
           <div className="hidden text-right text-xs text-muted-foreground sm:block">
             <span className="font-bold text-foreground">{dogs.length}</span> searching ·{" "}
             <span className="font-bold text-foreground">{totalHelpers}</span> helping
           </div>
-          <Button size="lg" onClick={() => setReportOpen(true)}>
+          {user && <NotificationBell userId={user.id} />}
+          {user ? (
+            <Button variant="outline" size="icon" aria-label="My account" onClick={() => setAccountOpen(true)} className="rounded-full">
+              <User className="size-4" />
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={() => setAuthOpen(true)}>Log in</Button>
+          )}
+          <Button size="lg" onClick={() => user ? setReportOpen(true) : setAuthOpen(true)}>
             <Plus className="size-4" />
             <span className="hidden sm:inline">Report missing dog</span>
             <span className="sm:hidden">Report</span>
@@ -215,6 +231,9 @@ export function FinderApp({ initialDogs, initialCounts }: Props) {
           setDogs((prev) => prev.map((d) => (d.id === updated.id ? updated : d)))
         }}
       />
+
+      <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} />
+      {user && <AccountDialog open={accountOpen} onClose={() => setAccountOpen(false)} userEmail={user.email || ""} userId={user.id} onSignOut={() => setUser(null)} />}
 
       <VolunteerDialog
         open={!!volunteerDog}

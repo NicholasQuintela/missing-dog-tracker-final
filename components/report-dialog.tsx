@@ -61,6 +61,11 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
 
     setSubmitting(true)
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setError("Please log in before posting a missing-dog report.")
+        return
+      }
       let photo_url: string | null = null
       if (photoFile) {
         const ext = photoFile.name.split(".").pop() || "jpg"
@@ -76,6 +81,7 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
       const { data, error: insertErr } = await supabase
         .from("missing_dogs")
         .insert({
+          owner_id: user.id,
           name: name.trim(),
           breed_details: breed.trim() || null,
           photo_url,
