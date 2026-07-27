@@ -1,15 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import dynamic from "next/dynamic"
-import { ImagePlus, Loader2, MapPin } from "lucide-react"
+import { ImagePlus, Loader2 } from "lucide-react"
 import { Modal, Field, inputClass } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import { CaptchaWidget } from "@/components/captcha-widget"
+import { LocationPicker, type AddressFields } from "@/components/location-picker"
 import type { MissingDog, Sighting } from "@/lib/types"
 
-const DogMap = dynamic(() => import("@/components/dog-map"), { ssr: false })
 
 type Props = { open: boolean; onClose: () => void; defaultCenter: [number, number]; dogs: MissingDog[]; defaultDogId?: string | null; onCreated: (s: Sighting, conversationId: string | null) => void }
 
@@ -24,6 +23,7 @@ export function SightingDialog({ open, onClose, defaultCenter, dogs, defaultDogI
   const [contact, setContact] = useState("")
   const [seenAt, setSeenAt] = useState(() => new Date().toISOString().slice(0, 16))
   const [point, setPoint] = useState<[number, number]>(defaultCenter)
+  const [address, setAddress] = useState<AddressFields>({ region: "", city: "", barangay: "", street: "" })
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [mapInstanceKey, setMapInstanceKey] = useState(0)
@@ -33,6 +33,7 @@ export function SightingDialog({ open, onClose, defaultCenter, dogs, defaultDogI
       setDogId(defaultDogId || "")
       setPoint(defaultCenter)
       setError(null)
+      setAddress({ region: "", city: "", barangay: "", street: "" })
       setMapInstanceKey((value) => value + 1)
     }
   }, [open, defaultDogId, defaultCenter])
@@ -55,7 +56,7 @@ export function SightingDialog({ open, onClose, defaultCenter, dogs, defaultDogI
         if (error) throw error
         photo_url = supabase.storage.from("dog-photos").getPublicUrl(photo_path).data.publicUrl
       }
-      const { data, error } = await supabase.from("sightings").insert({ reporter_id: user.id, dog_id: dogId || null, title: title.trim(), description: description.trim() || null, contact_info: contact.trim() || null, seen_at: new Date(seenAt).toISOString(), latitude: point[0], longitude: point[1], photo_url, photo_path }).select().single()
+      const { data, error } = await supabase.from("sightings").insert({ reporter_id: user.id, dog_id: dogId || null, title: title.trim(), description: description.trim() || null, contact_info: contact.trim() || null, seen_at: new Date(seenAt).toISOString(), latitude: point[0], longitude: point[1], photo_url, photo_path, region: address.region.trim() || null, city: address.city.trim() || null, barangay: address.barangay.trim() || null, street_or_landmark: address.street.trim() || null, location_source: address.region.trim() || address.city.trim() || address.barangay.trim() || address.street.trim() ? "address_or_adjusted_pin" : "manual_pin" }).select().single()
       if (error) throw error
       const { data: conversationId } = dogId ? await supabase.rpc("get_my_case_conversation", { p_dog_id: dogId }) : { data: null }; onCreated(data as Sighting, (conversationId as string | null) || null); onClose(); setTitle(""); setDescription(""); setContact(""); setPhotoFile(null); setPhotoPreview(null)
     } catch (err) { console.error("[Pet Alert PH] sighting submit error:", err); setError(err instanceof Error ? err.message : "Something went wrong.") } finally { setSubmitting(false) }
@@ -67,7 +68,7 @@ export function SightingDialog({ open, onClose, defaultCenter, dogs, defaultDogI
       <Field label="Sighting title"><input className={inputClass} value={title} onChange={e => setTitle(e.target.value)} placeholder="Brown dog seen near the market" required /></Field>
       <Field label="Details"><textarea className={inputClass + " h-auto py-2"} rows={3} value={description} onChange={e => setDescription(e.target.value)} placeholder="Direction of travel, collar, behavior, landmarks…" /></Field>
       <Field label="Date and time seen"><input className={inputClass} type="datetime-local" value={seenAt} onChange={e => setSeenAt(e.target.value)} required /></Field>
-      <Field label="Pin the sighting location" hint="Tap the map to place the green pin."><div className="h-52 overflow-hidden rounded-xl border"><DogMap key={`sighting-picker-${mapInstanceKey}`} dogs={[]} sightings={[]} selectedId={null} onSelect={() => {}} center={point} recenterTrigger={0} pickMode pickKind="sighting" pickedPoint={point} onPick={(lat,lng) => setPoint([lat,lng])} /></div><p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="size-3" />{point[0].toFixed(4)}, {point[1].toFixed(4)}</p></Field>
+      <LocationPicker point={point} onPointChange={setPoint} address={address} onAddressChange={setAddress} kind="sighting" mapKey={`sighting-picker-${mapInstanceKey}`} title="Choose the sighting location" hint="Search by address, use your private current location, or tap the map to place the green pin." />
       <Field label="Photo (optional)"><label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed p-3">{photoPreview ? <img src={photoPreview} alt="Sighting preview" className="size-16 rounded-lg object-cover" /> : <ImagePlus className="size-6" />}<span className="text-sm">Choose an image up to 2 MB</span><input className="sr-only" type="file" accept="image/*" onChange={e => { const f=e.target.files?.[0]; if(f){setPhotoFile(f);setPhotoPreview(URL.createObjectURL(f))} }} /></label></Field>
       <Field label="Contact info (optional)"><input className={inputClass} value={contact} onChange={e => setContact(e.target.value)} placeholder="Phone, email, or social handle" /></Field>
       <CaptchaWidget onToken={setCaptchaToken} />

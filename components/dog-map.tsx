@@ -19,6 +19,16 @@ function pinIcon(kind: "dog" | "sighting", active = false) {
   })
 }
 
+
+function privateLocationIcon() {
+  return L.divIcon({
+    html: `<div style="position:relative;transform:translate(-50%,-50%);"><div style="width:20px;height:20px;border-radius:999px;background:#2563eb;border:3px solid white;box-shadow:0 0 0 7px rgba(37,99,235,.2),0 2px 8px rgba(0,0,0,.3);"></div></div>`,
+    className: "",
+    iconSize: [20, 20],
+    iconAnchor: [0, 0],
+  })
+}
+
 function ClickHandler({ onPick }: { onPick?: (lat: number, lng: number) => void }) {
   useMapEvents({ click(e) { onPick?.(e.latlng.lat, e.latlng.lng) } })
   return null
@@ -42,9 +52,10 @@ type Props = {
   pickedPoint?: [number, number] | null
   pickKind?: "dog" | "sighting"
   onPick?: (lat: number, lng: number) => void
+  privateUserPoint?: [number, number] | null
 }
 
-export default function DogMap({ dogs, sightings = [], selectedId, onSelect, onSelectSighting, center, recenterTrigger, pickMode, pickedPoint, pickKind = "dog", onPick }: Props) {
+export default function DogMap({ dogs, sightings = [], selectedId, onSelect, onSelectSighting, center, recenterTrigger, pickMode, pickedPoint, pickKind = "dog", onPick, privateUserPoint = null }: Props) {
   const dogMarkers = useMemo(() => dogs.map((dog) => (
     <Marker key={`dog-${dog.id}`} position={[dog.latitude, dog.longitude]} icon={pinIcon("dog", dog.id === selectedId || !selectedId)} eventHandlers={{ click: () => onSelect(dog) }} />
   )), [dogs, selectedId, onSelect])
@@ -57,6 +68,7 @@ export default function DogMap({ dogs, sightings = [], selectedId, onSelect, onS
     <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
     {dogMarkers}{sightingMarkers}
     {pickMode && pickedPoint && <Marker position={pickedPoint} icon={pinIcon(pickKind, true)} />}
+    {privateUserPoint && <Marker position={privateUserPoint} icon={privateLocationIcon()} interactive={false} />}
     <ClickHandler onPick={pickMode ? onPick : undefined} />
     <Recenter center={center} trigger={recenterTrigger} />
   </MapContainer>

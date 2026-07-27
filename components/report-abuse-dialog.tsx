@@ -44,25 +44,13 @@ export function ReportAbuseDialog({ open, onClose, targetType, targetId }: Props
       const supabase = createClient()
       const userResult = await supabase.auth.getUser()
       if (!userResult.data.user) throw new Error("Please log in to report abuse.")
-      const sessionResult = await supabase.auth.getSession()
-      const accessToken = sessionResult.data.session?.access_token
-      if (!accessToken) throw new Error("Your session has expired. Please log in again.")
-
-      const response = await fetch("/api/report-abuse", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          targetType,
-          targetId,
-          category,
-          details: details.trim() || null,
-        }),
+      const result = await supabase.rpc("submit_pet_alert_abuse_report", {
+        p_target_type: targetType,
+        p_target_id: targetId,
+        p_category: category,
+        p_details: details.trim() || null,
       })
-      const payload = (await response.json().catch(() => ({}))) as { error?: string }
-      if (!response.ok) throw new Error(payload.error || "Unable to submit the report.")
+      if (result.error) throw result.error
       setSuccess(true)
       setDetails("")
       window.setTimeout(() => onClose(), 900)

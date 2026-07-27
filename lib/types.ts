@@ -9,6 +9,11 @@ export type MissingDog = {
   contact_info: string
   latitude: number
   longitude: number
+  region?: string | null
+  city?: string | null
+  barangay?: string | null
+  street_or_landmark?: string | null
+  location_source?: string | null
   last_seen: string | null
   status: string
   created_at: string
@@ -30,6 +35,11 @@ export type Sighting = {
   photo_path: string | null
   latitude: number
   longitude: number
+  region?: string | null
+  city?: string | null
+  barangay?: string | null
+  street_or_landmark?: string | null
+  location_source?: string | null
   seen_at: string
   contact_info: string | null
   status: string

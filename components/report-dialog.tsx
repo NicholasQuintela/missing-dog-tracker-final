@@ -1,15 +1,14 @@
 "use client"
 
 import { useState } from "react"
-import dynamic from "next/dynamic"
-import { ImagePlus, Loader2, MapPin } from "lucide-react"
+import { ImagePlus, Loader2 } from "lucide-react"
 import { Modal, Field, inputClass } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import { CaptchaWidget } from "@/components/captcha-widget"
+import { LocationPicker, type AddressFields } from "@/components/location-picker"
 import type { MissingDog } from "@/lib/types"
 
-const DogMap = dynamic(() => import("@/components/dog-map"), { ssr: false })
 
 type Props = {
   open: boolean
@@ -26,6 +25,7 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [point, setPoint] = useState<[number, number]>(defaultCenter)
+  const [address, setAddress] = useState<AddressFields>({ region: "", city: "", barangay: "", street: "" })
 
   const [name, setName] = useState("")
   const [breed, setBreed] = useState("")
@@ -45,6 +45,7 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
     setPhotoPreview(null)
     setError(null)
     setPoint(defaultCenter)
+    setAddress({ region: "", city: "", barangay: "", street: "" })
   }
 
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -102,6 +103,11 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
           latitude: point[0],
           longitude: point[1],
           last_seen: lastSeen.trim() || null,
+          region: address.region.trim() || null,
+          city: address.city.trim() || null,
+          barangay: address.barangay.trim() || null,
+          street_or_landmark: address.street.trim() || null,
+          location_source: address.region.trim() || address.city.trim() || address.barangay.trim() || address.street.trim() ? "address_or_adjusted_pin" : "manual_pin",
         })
         .select()
         .single()
@@ -190,27 +196,16 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
           />
         </Field>
 
-        <Field
-          label="Pin the last known location"
-          hint="Tap on the map to drop the pin where your dog went missing."
-        >
-          <div className="h-52 overflow-hidden rounded-xl border border-border">
-            <DogMap
-              dogs={[]}
-              selectedId={null}
-              onSelect={() => {}}
-              center={point}
-              recenterTrigger={0}
-              pickMode
-              pickedPoint={point}
-              onPick={(lat, lng) => setPoint([lat, lng])}
-            />
-          </div>
-          <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-            <MapPin className="size-3" />
-            {point[0].toFixed(4)}, {point[1].toFixed(4)}
-          </p>
-        </Field>
+        <LocationPicker
+          point={point}
+          onPointChange={setPoint}
+          address={address}
+          onAddressChange={setAddress}
+          kind="dog"
+          mapKey={`missing-location-${open ? "open" : "closed"}`}
+          title="Choose the last known location"
+          hint="Search by region, city, barangay, street or landmark; use your private current location; or tap the map."
+        />
 
         <Field label="Contact info" htmlFor="contact" hint="Phone, email, or social handle where volunteers can reach you.">
           <input
