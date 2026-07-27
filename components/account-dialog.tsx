@@ -10,7 +10,24 @@ import type { MissingDog } from "@/lib/types"
 export function AccountDialog({ open, onClose, userEmail, userId, onSignOut }: { open: boolean; onClose: () => void; userEmail: string; userId: string; onSignOut: () => void }) {
   const supabase = createClient()
   const [dogs, setDogs] = useState<MissingDog[]>([])
-  useEffect(() => { if (!open) return; supabase.from("missing_dogs").select("*").eq("owner_id", userId).order("created_at", { ascending: false }).then(({ data }) => setDogs((data as MissingDog[]) || [])) }, [open, supabase, userId])
+  useEffect(() => {
+    if (!open) return
+
+    let cancelled = false
+
+    async function loadDogs() {
+      const result = await supabase
+        .from("missing_dogs")
+        .select("*")
+        .eq("owner_id", userId)
+        .order("created_at", { ascending: false })
+
+      if (!cancelled) setDogs((result.data as MissingDog[]) || [])
+    }
+
+    void loadDogs()
+    return () => { cancelled = true }
+  }, [open, supabase, userId])
   async function signOut() { await supabase.auth.signOut(); onSignOut(); onClose() }
   return <Modal open={open} onClose={onClose} title="My Pet Alert PH account" description={userEmail}>
     <div className="flex flex-col gap-4">

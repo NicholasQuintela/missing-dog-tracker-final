@@ -34,17 +34,36 @@ export function NotificationsPageClient() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    setChatId(params.get("chat"))
-    supabase.auth.getUser().then(({ data }) => {
-      const id = data.user?.id || null
+    let cancelled = false
+
+    async function loadNotifications() {
+      const params = new URLSearchParams(window.location.search)
+      setChatId(params.get("chat"))
+
+      const userResult = await supabase.auth.getUser()
+      const id = userResult.data.user?.id || null
+      if (cancelled) return
+
       setUserId(id)
-      if (!id) { setLoading(false); return }
-      supabase.from("notifications").select("*").eq("user_id", id).order("created_at", { ascending: false }).limit(200).then(({ data }) => {
-        setItems((data as Notification[]) || [])
+      if (!id) {
         setLoading(false)
-      })
-    })
+        return
+      }
+
+      const notificationResult = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_id", id)
+        .order("created_at", { ascending: false })
+        .limit(200)
+
+      if (cancelled) return
+      setItems((notificationResult.data as Notification[]) || [])
+      setLoading(false)
+    }
+
+    void loadNotifications()
+    return () => { cancelled = true }
   }, [supabase])
 
   useEffect(() => {

@@ -18,11 +18,20 @@ export function ChatDialog({ open, onClose, conversationId, userId }: { open: bo
   useEffect(() => {
     if (!open || !conversationId) return
     let active = true
-    supabase.from("messages").select("*").eq("conversation_id", conversationId).order("created_at", { ascending: true }).limit(200).then(({ data, error }) => {
+    async function loadMessages() {
+      const result = await supabase
+        .from("messages")
+        .select("*")
+        .eq("conversation_id", conversationId)
+        .order("created_at", { ascending: true })
+        .limit(200)
+
       if (!active) return
-      if (error) setError(error.message)
-      else setMessages((data as ChatMessage[]) || [])
-    })
+      if (result.error) setError(result.error.message)
+      else setMessages((result.data as ChatMessage[]) || [])
+    }
+
+    void loadMessages()
     const channel = supabase.channel(`chat-${conversationId}`).on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` }, payload => setMessages(prev => prev.some(m => m.id === (payload.new as ChatMessage).id) ? prev : [...prev, payload.new as ChatMessage])).subscribe()
     return () => { active = false; supabase.removeChannel(channel) }
   }, [open, conversationId, supabase])
