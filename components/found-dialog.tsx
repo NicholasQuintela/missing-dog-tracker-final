@@ -55,6 +55,7 @@ export function FoundDialog({ open, onClose, dog, onFound }: Props) {
 
     setSubmitting(true)
     try {
+      if (photoFile.size > 2 * 1024 * 1024) throw new Error("Please choose an image smaller than 2 MB.")
       const ext = photoFile.name.split(".").pop() || "jpg"
       const path = `found/${crypto.randomUUID()}.${ext}`
       const { error: upErr } = await supabase.storage
@@ -70,6 +71,7 @@ export function FoundDialog({ open, onClose, dog, onFound }: Props) {
           found_by: name.trim(),
           found_note: note.trim() || null,
           found_photo_url: pub.publicUrl,
+          found_photo_path: path,
           found_at: new Date().toISOString(),
         })
         .eq("id", dog.id)

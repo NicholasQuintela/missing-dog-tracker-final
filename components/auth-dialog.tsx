@@ -16,6 +16,7 @@ export function AuthDialog({ open, onClose }: Props) {
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [accepted, setAccepted] = useState(false)
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -26,6 +27,7 @@ export function AuthDialog({ open, onClose }: Props) {
         if (error) throw error
         onClose()
       } else {
+        if (!accepted) throw new Error("Please accept the Terms and Privacy Notice.")
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
@@ -45,6 +47,7 @@ export function AuthDialog({ open, onClose }: Props) {
       <form onSubmit={submit} className="flex flex-col gap-4">
         <Field label="Email" htmlFor="auth-email"><input id="auth-email" type="email" required value={email} onChange={e => setEmail(e.target.value)} className={inputClass} placeholder="you@example.com" /></Field>
         <Field label="Password" htmlFor="auth-password"><input id="auth-password" type="password" required minLength={6} value={password} onChange={e => setPassword(e.target.value)} className={inputClass} placeholder="At least 6 characters" /></Field>
+        {mode === "signup" && <label className="flex items-start gap-2 text-xs text-muted-foreground"><input type="checkbox" className="mt-0.5" checked={accepted} onChange={e=>setAccepted(e.target.checked)} /><span>I agree to the <a href="/terms" target="_blank" className="font-semibold text-primary underline">Terms of Use</a> and acknowledge the <a href="/privacy" target="_blank" className="font-semibold text-primary underline">Privacy Notice</a>.</span></label>}
         {error && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
         {message && <p className="rounded-lg bg-accent/10 px-3 py-2 text-sm text-foreground">{message}</p>}
         <Button type="submit" size="lg" disabled={submitting}>{submitting ? <><Loader2 className="size-4 animate-spin" /> Please wait…</> : mode === "login" ? <><LogIn className="size-4" /> Log in</> : <><UserPlus className="size-4" /> Create account</>}</Button>

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Gift, MapPin, Phone, Users, Clock, PawPrint, CheckCircle2 } from "lucide-react"
+import { Gift, MapPin, Phone, Users, Clock, PawPrint, CheckCircle2, Share2, Trash2, Eye } from "lucide-react"
 import { Modal } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
@@ -13,13 +13,16 @@ type Props = {
   dog: MissingDog | null
   onVolunteer: () => void
   onFound: () => void
+  onSighting: () => void
+  currentUserId?: string | null
+  onDeleted: (id: string) => void
 }
 
 function foundWhen(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
 }
 
-export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound }: Props) {
+export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound, onSighting, currentUserId, onDeleted }: Props) {
   const supabase = createClient()
   const [volunteers, setVolunteers] = useState<Volunteer[]>([])
 
@@ -57,6 +60,19 @@ export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound }: Pr
   if (!dog) return null
 
   const isFound = dog.status === "found"
+
+  async function shareReport() {
+    const url = `${window.location.origin}/?report=${dog.id}`
+    if (navigator.share) await navigator.share({ title: `${dog.name} — PawFinder`, text: `Help find ${dog.name}`, url })
+    else { await navigator.clipboard.writeText(url); alert("Report link copied.") }
+  }
+
+  async function deleteReport() {
+    if (!confirm(`Delete ${dog.name}'s report? This also removes linked sightings, volunteers, chats, and notifications.`)) return
+    const { error } = await supabase.from("missing_dogs").delete().eq("id", dog.id)
+    if (error) { alert(error.message); return }
+    onDeleted(dog.id); onClose()
+  }
 
   return (
     <Modal open={open} onClose={onClose} title={dog.name}>
@@ -134,17 +150,27 @@ export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound }: Pr
           </div>
         </div>
 
+        <Button size="lg" variant="outline" onClick={shareReport}><Share2 className="size-4" />Share this report</Button>
+
         {!isFound && (
           <div className="flex flex-col gap-2">
             <Button size="lg" onClick={onVolunteer}>
               <Users className="size-4" />
               {`I'll help find ${dog.name}`}
             </Button>
+            <Button size="lg" variant="outline" onClick={onSighting}>
+              <Eye className="size-4" />
+              {`Report a sighting of ${dog.name}`}
+            </Button>
             <Button size="lg" variant="outline" onClick={onFound}>
               <PawPrint className="size-4" />
               {`I found ${dog.name}`}
             </Button>
           </div>
+        )}
+
+        {currentUserId === dog.owner_id && (
+          <Button variant="outline" onClick={deleteReport} className="text-destructive"><Trash2 className="size-4" />Delete report</Button>
         )}
 
         {volunteers.length > 0 && (

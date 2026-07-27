@@ -2,247 +2,77 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
-import { PawPrint, Plus, Search, LocateFixed, User } from "lucide-react"
+import { PawPrint, Plus, Search, LocateFixed, User, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DogCard } from "@/components/dog-card"
 import { ReportDialog } from "@/components/report-dialog"
 import { VolunteerDialog } from "@/components/volunteer-dialog"
 import { FoundDialog } from "@/components/found-dialog"
 import { DogDetailDialog } from "@/components/dog-detail-dialog"
+import { SightingDialog } from "@/components/sighting-dialog"
+import { SightingDetailDialog } from "@/components/sighting-detail-dialog"
 import { AuthDialog } from "@/components/auth-dialog"
 import { NotificationBell } from "@/components/notifications"
 import { AccountDialog } from "@/components/account-dialog"
 import { createClient } from "@/lib/supabase/client"
-import type { MissingDog, Volunteer } from "@/lib/types"
+import type { MissingDog, Volunteer, Sighting } from "@/lib/types"
 
-const DogMap = dynamic(() => import("@/components/dog-map"), {
-  ssr: false,
-  loading: () => <div className="h-full w-full animate-pulse bg-muted" />,
-})
+const DogMap = dynamic(() => import("@/components/dog-map"), { ssr: false, loading: () => <div className="h-full w-full animate-pulse bg-muted" /> })
+const DEFAULT_CENTER: [number, number] = [14.5995, 120.9842]
+type Props = { initialDogs: MissingDog[]; initialCounts: Record<string, number>; initialSightings: Sighting[] }
 
-const DEFAULT_CENTER: [number, number] = [40.7128, -74.006]
-
-type Props = {
-  initialDogs: MissingDog[]
-  initialCounts: Record<string, number>
-}
-
-export function FinderApp({ initialDogs, initialCounts }: Props) {
+export function FinderApp({ initialDogs, initialCounts, initialSightings }: Props) {
   const supabase = useMemo(() => createClient(), [])
-  const [dogs, setDogs] = useState<MissingDog[]>(initialDogs)
-  const [counts, setCounts] = useState<Record<string, number>>(initialCounts)
+  const [dogs, setDogs] = useState(initialDogs)
+  const [sightings, setSightings] = useState(initialSightings)
+  const [counts, setCounts] = useState(initialCounts)
   const [query, setQuery] = useState("")
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [center, setCenter] = useState<[number, number]>(
-    initialDogs.length ? [initialDogs[0].latitude, initialDogs[0].longitude] : DEFAULT_CENTER,
-  )
+  const [center, setCenter] = useState<[number, number]>(initialDogs.length ? [initialDogs[0].latitude, initialDogs[0].longitude] : DEFAULT_CENTER)
   const [recenterTrigger, setRecenterTrigger] = useState(0)
-  const [user, setUser] = useState<{ id: string; email?: string } | null>(null)
-  const [authOpen, setAuthOpen] = useState(false)
-  const [accountOpen, setAccountOpen] = useState(false)
+  const [user, setUser] = useState<{ id:string; email?:string } | null>(null)
+  const [authOpen,setAuthOpen]=useState(false), [accountOpen,setAccountOpen]=useState(false), [reportOpen,setReportOpen]=useState(false), [sightingOpen,setSightingOpen]=useState(false)
+  const [detailDog,setDetailDog]=useState<MissingDog|null>(null), [detailSighting,setDetailSighting]=useState<Sighting|null>(null), [volunteerDog,setVolunteerDog]=useState<MissingDog|null>(null), [foundDog,setFoundDog]=useState<MissingDog|null>(null)
+  const [sightingDogId,setSightingDogId]=useState<string|null>(null)
 
-  const [reportOpen, setReportOpen] = useState(false)
-  const [detailDog, setDetailDog] = useState<MissingDog | null>(null)
-  const [volunteerDog, setVolunteerDog] = useState<MissingDog | null>(null)
-  const [foundDog, setFoundDog] = useState<MissingDog | null>(null)
+  useEffect(()=>{ supabase.auth.getUser().then(({data})=>setUser(data.user?{id:data.user.id,email:data.user.email}:null)); const {data:l}=supabase.auth.onAuthStateChange((_e,s)=>setUser(s?.user?{id:s.user.id,email:s.user.email}:null)); return()=>l.subscription.unsubscribe() },[supabase])
+  useEffect(()=>{
+    const params=new URLSearchParams(window.location.search); const rid=params.get("report"), sid=params.get("sighting")
+    if(rid){const d=initialDogs.find(x=>x.id===rid); if(d)setDetailDog(d)}
+    if(sid){const s=initialSightings.find(x=>x.id===sid); if(s)setDetailSighting(s)}
+  },[initialDogs,initialSightings])
+  useEffect(()=>{const ch=supabase.channel("finder-realtime")
+    .on("postgres_changes",{event:"INSERT",schema:"public",table:"missing_dogs"},p=>setDogs(v=>[p.new as MissingDog,...v.filter(d=>d.id!==(p.new as MissingDog).id)]))
+    .on("postgres_changes",{event:"UPDATE",schema:"public",table:"missing_dogs"},p=>setDogs(v=>v.map(d=>d.id===(p.new as MissingDog).id?p.new as MissingDog:d)))
+    .on("postgres_changes",{event:"DELETE",schema:"public",table:"missing_dogs"},p=>setDogs(v=>v.filter(d=>d.id!==(p.old as MissingDog).id)))
+    .on("postgres_changes",{event:"INSERT",schema:"public",table:"sightings"},p=>setSightings(v=>[p.new as Sighting,...v.filter(s=>s.id!==(p.new as Sighting).id)]))
+    .on("postgres_changes",{event:"DELETE",schema:"public",table:"sightings"},p=>setSightings(v=>v.filter(s=>s.id!==(p.old as Sighting).id)))
+    .on("postgres_changes",{event:"INSERT",schema:"public",table:"volunteers"},p=>{const x=p.new as Volunteer;setCounts(v=>({...v,[x.dog_id]:(v[x.dog_id]||0)+1}))}).subscribe(); return()=>{supabase.removeChannel(ch)}},[supabase])
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user ? { id: data.user.id, email: data.user.email } : null))
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ? { id: session.user.id, email: session.user.email } : null))
-    return () => listener.subscription.unsubscribe()
-  }, [supabase])
+  const filtered=useMemo(()=>{const q=query.trim().toLowerCase();return q?dogs.filter(d=>d.name.toLowerCase().includes(q)||(d.breed_details||"").toLowerCase().includes(q)||(d.last_seen||"").toLowerCase().includes(q)):dogs},[dogs,query])
+  const focus=(lat:number,lng:number)=>{setCenter([lat,lng]);setRecenterTrigger(t=>t+1)}
+  const selectDog=useCallback((dog:MissingDog)=>{setSelectedId(dog.id);focus(dog.latitude,dog.longitude);setDetailDog(dog)},[])
+  function locateMe(){navigator.geolocation?.getCurrentPosition(p=>focus(p.coords.latitude,p.coords.longitude))}
+  const totalHelpers=Object.values(counts).reduce((a,b)=>a+b,0)
+  function requireLogin(action:()=>void){if(!user)setAuthOpen(true);else action()}
 
-  // Realtime: new dogs and new volunteers keep every client in sync.
-  useEffect(() => {
-    const channel = supabase
-      .channel("finder-realtime")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "missing_dogs" }, (payload) => {
-        const dog = payload.new as MissingDog
-        setDogs((prev) => (prev.some((d) => d.id === dog.id) ? prev : [dog, ...prev]))
-      })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "missing_dogs" }, (payload) => {
-        const dog = payload.new as MissingDog
-        setDogs((prev) => prev.map((d) => (d.id === dog.id ? dog : d)))
-      })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "volunteers" }, (payload) => {
-        const v = payload.new as Volunteer
-        setCounts((prev) => ({ ...prev, [v.dog_id]: (prev[v.dog_id] || 0) + 1 }))
-      })
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [supabase])
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return dogs
-    return dogs.filter(
-      (d) =>
-        d.name.toLowerCase().includes(q) ||
-        (d.breed_details || "").toLowerCase().includes(q) ||
-        (d.last_seen || "").toLowerCase().includes(q),
-    )
-  }, [dogs, query])
-
-  const selectDog = useCallback((dog: MissingDog) => {
-    setSelectedId(dog.id)
-    setCenter([dog.latitude, dog.longitude])
-    setRecenterTrigger((t) => t + 1)
-    setDetailDog(dog)
-  }, [])
-
-  const focusDog = useCallback((dog: MissingDog) => {
-    setSelectedId(dog.id)
-    setCenter([dog.latitude, dog.longitude])
-    setRecenterTrigger((t) => t + 1)
-  }, [])
-
-  function locateMe() {
-    if (!navigator.geolocation) return
-    navigator.geolocation.getCurrentPosition((pos) => {
-      setCenter([pos.coords.latitude, pos.coords.longitude])
-      setRecenterTrigger((t) => t + 1)
-    })
-  }
-
-  const totalHelpers = Object.values(counts).reduce((a, b) => a + b, 0)
-
-  return (
-    <div className="flex h-dvh flex-col overflow-hidden">
-      <header className="z-20 flex items-center justify-between gap-4 border-b border-border bg-card/80 px-4 py-3 backdrop-blur sm:px-6">
-        <div className="flex items-center gap-2.5">
-          <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <PawPrint className="size-5" />
-          </div>
-          <div className="leading-tight">
-            <h1 className="font-serif text-lg font-extrabold text-foreground">PawFinder</h1>
-            <p className="hidden text-xs text-muted-foreground sm:block">Bringing lost dogs home, together</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="hidden text-right text-xs text-muted-foreground sm:block">
-            <span className="font-bold text-foreground">{dogs.length}</span> searching ·{" "}
-            <span className="font-bold text-foreground">{totalHelpers}</span> helping
-          </div>
-          {user && <NotificationBell userId={user.id} />}
-          {user ? (
-            <Button variant="outline" size="icon" aria-label="My account" onClick={() => setAccountOpen(true)} className="rounded-full">
-              <User className="size-4" />
-            </Button>
-          ) : (
-            <Button variant="outline" onClick={() => setAuthOpen(true)}>Log in</Button>
-          )}
-          <Button size="lg" onClick={() => user ? setReportOpen(true) : setAuthOpen(true)}>
-            <Plus className="size-4" />
-            <span className="hidden sm:inline">Report missing dog</span>
-            <span className="sm:hidden">Report</span>
-          </Button>
-        </div>
-      </header>
-
-      <div className="flex min-h-0 flex-1 flex-col-reverse md:flex-row">
-        <aside className="flex w-full shrink-0 flex-col border-t border-border bg-background md:h-full md:w-96 md:border-t-0 md:border-r">
-          <div className="border-b border-border p-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by name, breed, area…"
-                className="h-10 w-full rounded-xl border border-input bg-card pl-9 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-ring focus:ring-3 focus:ring-ring/30"
-              />
-            </div>
-          </div>
-          <div className="flex-1 space-y-3 overflow-y-auto p-4">
-            {filtered.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 py-16 text-center text-muted-foreground">
-                <PawPrint className="size-8" />
-                <p className="text-sm text-pretty">
-                  {dogs.length === 0
-                    ? "No missing dogs reported yet. Be the first to spread the word."
-                    : "No dogs match your search."}
-                </p>
-              </div>
-            ) : (
-              filtered.map((dog) => (
-                <DogCard
-                  key={dog.id}
-                  dog={dog}
-                  volunteerCount={counts[dog.id] || 0}
-                  selected={dog.id === selectedId}
-                  onClick={() => selectDog(dog)}
-                />
-              ))
-            )}
-          </div>
-        </aside>
-
-        <main className="relative min-h-0 flex-1">
-          <DogMap
-            dogs={filtered}
-            selectedId={selectedId}
-            onSelect={focusDog}
-            center={center}
-            recenterTrigger={recenterTrigger}
-          />
-          <Button
-            variant="outline"
-            size="icon-lg"
-            onClick={locateMe}
-            aria-label="Center map on my location"
-            className="absolute bottom-6 right-4 z-[500] rounded-full bg-card shadow-lg"
-          >
-            <LocateFixed className="size-5" />
-          </Button>
-        </main>
+  return <div className="flex h-dvh flex-col overflow-hidden">
+    <header className="relative z-40 flex items-center justify-between gap-3 border-b bg-card/90 px-4 py-3 backdrop-blur sm:px-6">
+      <div className="flex items-center gap-2.5"><div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground"><PawPrint className="size-5"/></div><div><h1 className="font-serif text-lg font-extrabold">PawFinder</h1><p className="hidden text-xs text-muted-foreground sm:block">Bringing lost dogs home, together</p></div></div>
+      <div className="flex items-center gap-2"><span className="hidden text-xs text-muted-foreground lg:block">{dogs.length} reports · {sightings.length} sightings · {totalHelpers} helping</span>
+        {user&&<NotificationBell userId={user.id}/>} {user?<Button variant="outline" size="icon" className="rounded-full" onClick={()=>setAccountOpen(true)}><User className="size-4"/></Button>:<Button variant="outline" onClick={()=>setAuthOpen(true)}>Log in</Button>}
+        <Button variant="outline" onClick={()=>requireLogin(()=>{setSightingDogId(null);setSightingOpen(true)})}><Eye className="size-4"/><span className="hidden sm:inline">Report sighting</span></Button>
+        <Button onClick={()=>requireLogin(()=>setReportOpen(true))}><Plus className="size-4"/><span className="hidden sm:inline">Report missing dog</span><span className="sm:hidden">Report</span></Button>
       </div>
-
-      <ReportDialog
-        open={reportOpen}
-        onClose={() => setReportOpen(false)}
-        defaultCenter={center}
-        onReported={(dog) => {
-          setDogs((prev) => (prev.some((d) => d.id === dog.id) ? prev : [dog, ...prev]))
-          focusDog(dog)
-        }}
-      />
-
-      <DogDetailDialog
-        open={!!detailDog}
-        onClose={() => setDetailDog(null)}
-        dog={detailDog}
-        onVolunteer={() => {
-          setVolunteerDog(detailDog)
-          setDetailDog(null)
-        }}
-        onFound={() => {
-          setFoundDog(detailDog)
-          setDetailDog(null)
-        }}
-      />
-
-      <FoundDialog
-        open={!!foundDog}
-        onClose={() => setFoundDog(null)}
-        dog={foundDog}
-        onFound={(updated) => {
-          setDogs((prev) => prev.map((d) => (d.id === updated.id ? updated : d)))
-        }}
-      />
-
-      <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} />
-      {user && <AccountDialog open={accountOpen} onClose={() => setAccountOpen(false)} userEmail={user.email || ""} userId={user.id} onSignOut={() => setUser(null)} />}
-
-      <VolunteerDialog
-        open={!!volunteerDog}
-        onClose={() => setVolunteerDog(null)}
-        dog={volunteerDog}
-        onVolunteered={() => {
-          if (volunteerDog) setCounts((prev) => ({ ...prev, [volunteerDog.id]: (prev[volunteerDog.id] || 0) + 1 }))
-        }}
-      />
+    </header>
+    <div className="flex min-h-0 flex-1 flex-col-reverse md:flex-row"><aside className="flex w-full shrink-0 flex-col border-t bg-background md:h-full md:w-96 md:border-r md:border-t-0"><div className="border-b p-4"><div className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search name, breed, area…" className="h-10 w-full rounded-xl border bg-card pl-9 pr-3 text-sm outline-none"/></div><div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground"><span><span className="inline-block size-2 rounded-full bg-orange-600"/> Missing reports</span><span><span className="inline-block size-2 rounded-full bg-green-600"/> Sightings</span></div></div><div className="flex-1 space-y-3 overflow-y-auto p-4">{filtered.map(d=><DogCard key={d.id} dog={d} volunteerCount={counts[d.id]||0} selected={d.id===selectedId} onClick={()=>selectDog(d)}/>)}</div></aside>
+      <main className="relative z-0 min-h-0 flex-1"><DogMap dogs={filtered} sightings={sightings} selectedId={selectedId} onSelect={d=>{setSelectedId(d.id);focus(d.latitude,d.longitude)}} onSelectSighting={s=>{focus(s.latitude,s.longitude);setDetailSighting(s)}} center={center} recenterTrigger={recenterTrigger}/><Button variant="outline" size="icon-lg" onClick={locateMe} className="absolute bottom-6 right-4 z-20 rounded-full bg-card shadow-lg"><LocateFixed className="size-5"/></Button></main>
     </div>
-  )
+    <ReportDialog open={reportOpen} onClose={()=>setReportOpen(false)} defaultCenter={center} onReported={d=>{setDogs(v=>[d,...v]);focus(d.latitude,d.longitude)}}/>
+    <SightingDialog open={sightingOpen} onClose={()=>setSightingOpen(false)} defaultCenter={center} dogs={dogs} defaultDogId={sightingDogId} onCreated={s=>{setSightings(v=>[s,...v]);focus(s.latitude,s.longitude)}}/>
+    <DogDetailDialog open={!!detailDog} onClose={()=>setDetailDog(null)} dog={detailDog} currentUserId={user?.id} onDeleted={id=>setDogs(v=>v.filter(d=>d.id!==id))} onVolunteer={()=>requireLogin(()=>{setVolunteerDog(detailDog);setDetailDog(null)})} onFound={()=>requireLogin(()=>{setFoundDog(detailDog);setDetailDog(null)})} onSighting={()=>requireLogin(()=>{setSightingDogId(detailDog?.id||null);setSightingOpen(true);setDetailDog(null)})}/>
+    <SightingDetailDialog open={!!detailSighting} onClose={()=>setDetailSighting(null)} sighting={detailSighting} currentUserId={user?.id} onDeleted={id=>setSightings(v=>v.filter(s=>s.id!==id))}/>
+    <FoundDialog open={!!foundDog} onClose={()=>setFoundDog(null)} dog={foundDog} onFound={u=>setDogs(v=>v.map(d=>d.id===u.id?u:d))}/>
+    <AuthDialog open={authOpen} onClose={()=>setAuthOpen(false)}/>{user&&<AccountDialog open={accountOpen} onClose={()=>setAccountOpen(false)} userEmail={user.email||""} userId={user.id} onSignOut={()=>setUser(null)}/>}<VolunteerDialog open={!!volunteerDog} onClose={()=>setVolunteerDog(null)} dog={volunteerDog} userId={user?.id||null} userEmail={user?.email} onVolunteered={()=>{ if(volunteerDog) setCounts(v=>({...v,[volunteerDog.id]:(v[volunteerDog.id]||0)+1})) }}/>
+  </div>
 }

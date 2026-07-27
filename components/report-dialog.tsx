@@ -30,6 +30,7 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
   const [lastSeen, setLastSeen] = useState("")
   const [reward, setReward] = useState("")
   const [contact, setContact] = useState("")
+  const [confirmed, setConfirmed] = useState(false)
 
   function reset() {
     setName("")
@@ -37,6 +38,7 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
     setLastSeen("")
     setReward("")
     setContact("")
+    setConfirmed(false)
     setPhotoFile(null)
     setPhotoPreview(null)
     setError(null)
@@ -66,10 +68,14 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
         setError("Please log in before posting a missing-dog report.")
         return
       }
+      if (!confirmed) throw new Error("Please confirm that the report is accurate and lawful.")
       let photo_url: string | null = null
+      let photo_path: string | null = null
       if (photoFile) {
+        if (photoFile.size > 2 * 1024 * 1024) throw new Error("Please choose an image smaller than 2 MB.")
         const ext = photoFile.name.split(".").pop() || "jpg"
-        const path = `${crypto.randomUUID()}.${ext}`
+        const path = `reports/${user.id}/${crypto.randomUUID()}.${ext}`
+        photo_path = path
         const { error: upErr } = await supabase.storage
           .from("dog-photos")
           .upload(path, photoFile, { cacheControl: "3600", upsert: false })
@@ -85,6 +91,7 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
           name: name.trim(),
           breed_details: breed.trim() || null,
           photo_url,
+          photo_path,
           reward: reward ? Number(reward) : 0,
           contact_info: contact.trim(),
           latitude: point[0],
@@ -209,6 +216,8 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
             className={inputClass}
           />
         </Field>
+
+        <label className="flex items-start gap-2 text-xs text-muted-foreground"><input type="checkbox" className="mt-0.5" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)} /><span>I confirm this information is accurate, I have the right to upload the photo, and I will not use PawFinder for harassment, fraud, or emergencies. I agree to the <a href="/terms" target="_blank" className="font-semibold text-primary underline">Terms</a>.</span></label>
 
         {error && (
           <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">

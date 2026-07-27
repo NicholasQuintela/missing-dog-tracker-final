@@ -163,3 +163,12 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Keep Leaflet below PawFinder navigation, notifications, chats, and dialogs. */
+.leaflet-container { z-index: 0 !important; }
+.leaflet-pane { z-index: 1 !important; }
+.leaflet-top, .leaflet-bottom { z-index: 10 !important; }
+
+/* Keep Leaflet underneath app dialogs, chat and notification panels. */
+.leaflet-container { z-index: 0 !important; }
+.leaflet-pane, .leaflet-control { z-index: 10 !important; }
