@@ -6,6 +6,7 @@ import { ImagePlus, Loader2, MapPin } from "lucide-react"
 import { Modal, Field, inputClass } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
+import { CaptchaWidget } from "@/components/captcha-widget"
 import type { MissingDog } from "@/lib/types"
 
 const DogMap = dynamic(() => import("@/components/dog-map"), { ssr: false })
@@ -21,6 +22,7 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
   const supabase = createClient()
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [point, setPoint] = useState<[number, number]>(defaultCenter)
@@ -63,6 +65,9 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
 
     setSubmitting(true)
     try {
+      if (!captchaToken) throw new Error("Please complete the CAPTCHA.")
+      const captchaResponse = await fetch("/api/verify-captcha", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: captchaToken }) })
+      if (!captchaResponse.ok) throw new Error("CAPTCHA verification failed. Please try again.")
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         setError("Please log in before posting a missing-dog report.")
@@ -218,6 +223,8 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
         </Field>
 
         <label className="flex items-start gap-2 text-xs text-muted-foreground"><input type="checkbox" className="mt-0.5" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)} /><span>I confirm this information is accurate, I have the right to upload the photo, and I will not use Pet Alert PH for harassment, fraud, or emergencies. I agree to the <a href="/terms" target="_blank" className="font-semibold text-primary underline">Terms</a>.</span></label>
+
+        <CaptchaWidget onToken={setCaptchaToken} />
 
         {error && (
           <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">

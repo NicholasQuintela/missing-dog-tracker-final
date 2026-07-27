@@ -1,11 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Gift, MapPin, Phone, Users, Clock, PawPrint, CheckCircle2, Share2, Trash2, Eye } from "lucide-react"
+import { Gift, MapPin, Phone, Users, Clock, PawPrint, CheckCircle2, Share2, Trash2, Eye, Flag, Pencil } from "lucide-react"
 import { Modal } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import type { MissingDog, Volunteer } from "@/lib/types"
+import { ReportAbuseDialog } from "@/components/report-abuse-dialog"
+import { FoundClaimsPanel } from "@/components/found-claims-panel"
+import { EditReportDialog } from "@/components/edit-report-dialog"
 
 type Props = {
   open: boolean
@@ -16,15 +19,19 @@ type Props = {
   onSighting: () => void
   currentUserId?: string | null
   onDeleted: (id: string) => void
+  onUpdated: (dog: MissingDog) => void
 }
 
 function foundWhen(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
 }
 
-export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound, onSighting, currentUserId, onDeleted }: Props) {
+export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound, onSighting, currentUserId, onDeleted, onUpdated }: Props) {
   const supabase = createClient()
   const [volunteers, setVolunteers] = useState<Volunteer[]>([])
+  const [volunteerCount, setVolunteerCount] = useState(0)
+  const [abuseOpen, setAbuseOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
 
   useEffect(() => {
     if (!open || !dog) return
@@ -37,6 +44,9 @@ export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound, onSi
         .eq("dog_id", dog!.id)
         .order("created_at", { ascending: false })
       if (active && data) setVolunteers(data as Volunteer[])
+      const { data: countRows } = await supabase.rpc("get_volunteer_counts")
+      const row = ((countRows as {dog_id:string;volunteer_count:number}[] | null) || []).find(x=>x.dog_id===dog!.id)
+      if (active) setVolunteerCount(Number(row?.volunteer_count || 0))
     }
     load()
 
@@ -125,7 +135,7 @@ export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound, onSi
           )}
           <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 px-3 py-1 text-sm font-semibold text-accent">
             <Users className="size-4" />
-            {volunteers.length} volunteering
+            {volunteerCount} volunteering
           </span>
         </div>
 
@@ -169,9 +179,15 @@ export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound, onSi
           </div>
         )}
 
+        {currentUserId === dog.owner_id && <FoundClaimsPanel dogId={dog.id} onConfirmed={()=>onUpdated({...dog,status:"found"})} />}
+
+        {currentUserId === dog.owner_id && <Button variant="outline" onClick={()=>setEditOpen(true)}><Pencil className="size-4"/>Edit report</Button>}
+
         {currentUserId === dog.owner_id && (
           <Button variant="outline" onClick={deleteReport} className="text-destructive"><Trash2 className="size-4" />Delete report</Button>
         )}
+
+        {currentUserId && currentUserId !== dog.owner_id && <Button variant="ghost" onClick={()=>setAbuseOpen(true)} className="text-destructive"><Flag className="size-4"/>Report abuse</Button>}
 
         {volunteers.length > 0 && (
           <div className="flex flex-col gap-2">
@@ -187,6 +203,8 @@ export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound, onSi
           </div>
         )}
       </div>
+      <ReportAbuseDialog open={abuseOpen} onClose={()=>setAbuseOpen(false)} targetType="missing_dog" targetId={dog.id}/>
+      <EditReportDialog open={editOpen} onClose={()=>setEditOpen(false)} dog={dog} onUpdated={onUpdated}/>
     </Modal>
   )
 }

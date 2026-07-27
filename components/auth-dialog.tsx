@@ -5,6 +5,7 @@ import { Loader2, LogIn, UserPlus } from "lucide-react"
 import { Modal, Field, inputClass } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
+import { CaptchaWidget } from "@/components/captcha-widget"
 
 type Props = { open: boolean; onClose: () => void }
 
@@ -17,13 +18,15 @@ export function AuthDialog({ open, onClose }: Props) {
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [accepted, setAccepted] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setError(null); setMessage(null); setSubmitting(true)
     try {
       if (mode === "login") {
-        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+        if (!captchaToken) throw new Error("Please complete the CAPTCHA.")
+        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password, options: { captchaToken } })
         if (error) throw error
         onClose()
       } else {
@@ -31,7 +34,7 @@ export function AuthDialog({ open, onClose }: Props) {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+          options: { emailRedirectTo: `${window.location.origin}/auth/callback`, captchaToken: captchaToken || undefined },
         })
         if (error) throw error
         if (data.session) onClose()
@@ -47,6 +50,7 @@ export function AuthDialog({ open, onClose }: Props) {
       <form onSubmit={submit} className="flex flex-col gap-4">
         <Field label="Email" htmlFor="auth-email"><input id="auth-email" type="email" required value={email} onChange={e => setEmail(e.target.value)} className={inputClass} placeholder="you@example.com" /></Field>
         <Field label="Password" htmlFor="auth-password"><input id="auth-password" type="password" required minLength={6} value={password} onChange={e => setPassword(e.target.value)} className={inputClass} placeholder="At least 6 characters" /></Field>
+        <CaptchaWidget onToken={setCaptchaToken} />
         {mode === "signup" && <label className="flex items-start gap-2 text-xs text-muted-foreground"><input type="checkbox" className="mt-0.5" checked={accepted} onChange={e=>setAccepted(e.target.checked)} /><span>I agree to the <a href="/terms" target="_blank" className="font-semibold text-primary underline">Terms of Use</a> and acknowledge the <a href="/privacy" target="_blank" className="font-semibold text-primary underline">Privacy Notice</a>.</span></label>}
         {error && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
         {message && <p className="rounded-lg bg-accent/10 px-3 py-2 text-sm text-foreground">{message}</p>}

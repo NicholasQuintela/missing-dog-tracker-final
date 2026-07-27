@@ -47,19 +47,19 @@ export function FoundDialog({ open, onClose, dog, onFound }: Props) {
       if (upErr) throw upErr
       const { data: pub } = supabase.storage.from("dog-photos").getPublicUrl(path)
 
-      const { data, error: updErr } = await supabase.from("missing_dogs").update({
-        status: "found",
-        found_by: name.trim(),
-        found_by_user_id: user.id,
-        found_note: note.trim() || null,
-        found_photo_url: pub.publicUrl,
-        found_photo_path: path,
-        found_at: new Date().toISOString(),
-      }).eq("id", dog.id).select().single()
-      if (updErr) throw updErr
+      const { data, error: claimError } = await supabase.from("found_claims").insert({
+        dog_id: dog.id,
+        finder_id: user.id,
+        finder_name: name.trim(),
+        note: note.trim() || null,
+        photo_url: pub.publicUrl,
+        photo_path: path,
+      }).select().single()
+      if (claimError) throw claimError
 
       const { data: conversationId } = await supabase.rpc("get_my_case_conversation", { p_dog_id: dog.id })
-      onFound(data as MissingDog, (conversationId as string | null) || null)
+      alert("Your found claim was sent to the owner for confirmation.")
+      onFound(dog, (conversationId as string | null) || null)
       reset()
       onClose()
     } catch (err) {
@@ -68,13 +68,13 @@ export function FoundDialog({ open, onClose, dog, onFound }: Props) {
     } finally { setSubmitting(false) }
   }
 
-  return <Modal open={open} onClose={onClose} title={dog ? `${dog.name} has been found!` : "Mark as found"} description="This creates a private chat between the finder and the report owner.">
+  return <Modal open={open} onClose={onClose} title={dog ? `Possible match for ${dog.name}` : "Report a possible match"} description="The owner will review your proof and confirm whether this is their pet.">
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       <div className="flex items-center gap-4"><label htmlFor="found-photo" className="group relative flex size-24 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-border bg-muted text-muted-foreground transition-colors hover:border-ring hover:text-foreground">{photoPreview ? <img src={photoPreview} alt="Photo of the found dog" className="h-full w-full object-cover" /> : <ImagePlus className="size-7" />}<input id="found-photo" type="file" accept="image/*" onChange={handlePhoto} className="sr-only" /></label><div className="text-sm text-muted-foreground"><p className="font-semibold text-foreground">Proof photo (required)</p><p>A recent picture helps the owner verify the report.</p></div></div>
       <Field label="Your name" htmlFor="f-name"><input id="f-name" value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Jordan" className={inputClass}/></Field>
       <Field label="Where & how you found them (optional)" htmlFor="f-note"><textarea id="f-note" value={note} onChange={e=>setNote(e.target.value)} placeholder="Found near the market; currently safe with me." rows={3} className={inputClass+" h-auto py-2 resize-none"}/></Field>
       {error && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
-      <div className="flex gap-3"><Button type="button" variant="outline" size="lg" className="flex-1" onClick={onClose} disabled={submitting}>Cancel</Button><Button type="submit" size="lg" className="flex-1" disabled={submitting}>{submitting?<><Loader2 className="size-4 animate-spin"/> Confirming…</>:<><PartyPopper className="size-4"/> Confirm found</>}</Button></div>
+      <div className="flex gap-3"><Button type="button" variant="outline" size="lg" className="flex-1" onClick={onClose} disabled={submitting}>Cancel</Button><Button type="submit" size="lg" className="flex-1" disabled={submitting}>{submitting?<><Loader2 className="size-4 animate-spin"/> Confirming…</>:<><PartyPopper className="size-4"/> Send claim to owner</>}</Button></div>
     </form>
   </Modal>
 }

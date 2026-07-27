@@ -6,6 +6,7 @@ import { ImagePlus, Loader2, MapPin } from "lucide-react"
 import { Modal, Field, inputClass } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
+import { CaptchaWidget } from "@/components/captcha-widget"
 import type { MissingDog, Sighting } from "@/lib/types"
 
 const DogMap = dynamic(() => import("@/components/dog-map"), { ssr: false })
@@ -16,6 +17,7 @@ export function SightingDialog({ open, onClose, defaultCenter, dogs, defaultDogI
   const supabase = createClient()
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const [dogId, setDogId] = useState(defaultDogId || "")
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
@@ -38,6 +40,9 @@ export function SightingDialog({ open, onClose, defaultCenter, dogs, defaultDogI
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setError(null); setSubmitting(true)
     try {
+      if (!captchaToken) throw new Error("Please complete the CAPTCHA.")
+      const captchaResponse = await fetch("/api/verify-captcha", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: captchaToken }) })
+      if (!captchaResponse.ok) throw new Error("CAPTCHA verification failed. Please try again.")
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("Please log in before reporting a sighting.")
       if (!title.trim()) throw new Error("Please add a short sighting title.")
@@ -65,6 +70,7 @@ export function SightingDialog({ open, onClose, defaultCenter, dogs, defaultDogI
       <Field label="Pin the sighting location" hint="Tap the map to place the green pin."><div className="h-52 overflow-hidden rounded-xl border"><DogMap key={`sighting-picker-${mapInstanceKey}`} dogs={[]} sightings={[]} selectedId={null} onSelect={() => {}} center={point} recenterTrigger={0} pickMode pickKind="sighting" pickedPoint={point} onPick={(lat,lng) => setPoint([lat,lng])} /></div><p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="size-3" />{point[0].toFixed(4)}, {point[1].toFixed(4)}</p></Field>
       <Field label="Photo (optional)"><label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed p-3">{photoPreview ? <img src={photoPreview} alt="Sighting preview" className="size-16 rounded-lg object-cover" /> : <ImagePlus className="size-6" />}<span className="text-sm">Choose an image up to 2 MB</span><input className="sr-only" type="file" accept="image/*" onChange={e => { const f=e.target.files?.[0]; if(f){setPhotoFile(f);setPhotoPreview(URL.createObjectURL(f))} }} /></label></Field>
       <Field label="Contact info (optional)"><input className={inputClass} value={contact} onChange={e => setContact(e.target.value)} placeholder="Phone, email, or social handle" /></Field>
+      <CaptchaWidget onToken={setCaptchaToken} />
       {error && <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
       <div className="flex gap-3"><Button type="button" variant="outline" className="flex-1" onClick={onClose}>Cancel</Button><Button type="submit" className="flex-1" disabled={submitting}>{submitting ? <><Loader2 className="size-4 animate-spin" />Saving…</> : "Post sighting"}</Button></div>
     </form>
