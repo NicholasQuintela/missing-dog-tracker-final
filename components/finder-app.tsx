@@ -35,38 +35,7 @@ export function FinderApp({ initialDogs, initialCounts, initialSightings }: Prop
   const [detailDog,setDetailDog]=useState<MissingDog|null>(null), [detailSighting,setDetailSighting]=useState<Sighting|null>(null), [volunteerDog,setVolunteerDog]=useState<MissingDog|null>(null), [foundDog,setFoundDog]=useState<MissingDog|null>(null)
   const [sightingDogId,setSightingDogId]=useState<string|null>(null)
 
-  useEffect(() => {
-    let mounted = true
-
-    async function loadUser() {
-      const result = await supabase.auth.getUser()
-      if (!mounted) return
-      const currentUser = result.data.user
-      setUser(
-        currentUser
-          ? { id: currentUser.id, email: currentUser.email }
-          : null,
-      )
-    }
-
-    void loadUser()
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event: string, session: { user?: { id: string; email?: string } } | null) => {
-        const currentUser = session?.user
-        setUser(
-          currentUser
-            ? { id: currentUser.id, email: currentUser.email }
-            : null,
-        )
-      },
-    )
-
-    return () => {
-      mounted = false
-      authListener.subscription.unsubscribe()
-    }
-  }, [supabase])
+  useEffect(()=>{ supabase.auth.getUser().then(({data})=>setUser(data.user?{id:data.user.id,email:data.user.email}:null)); const {data:l}=supabase.auth.onAuthStateChange((_e,s)=>setUser(s?.user?{id:s.user.id,email:s.user.email}:null)); return()=>l.subscription.unsubscribe() },[supabase])
   useEffect(()=>{
     const params=new URLSearchParams(window.location.search); const rid=params.get("report"), sid=params.get("sighting")
     if(rid){const d=initialDogs.find(x=>x.id===rid); if(d)setDetailDog(d)}
