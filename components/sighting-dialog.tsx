@@ -50,7 +50,9 @@ export function SightingDialog({ open, onClose, defaultCenter, dogs, defaultDogI
       let photo_url: string | null = null, photo_path: string | null = null
       if (photoFile) {
         if (photoFile.size > 2 * 1024 * 1024) throw new Error("Please choose an image smaller than 2 MB.")
-        const ext = photoFile.name.split(".").pop() || "jpg"
+        const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"])
+        if (!allowedTypes.has(photoFile.type)) throw new Error("Please upload a JPG, PNG, or WebP image. HEIC/HEIF photos are not supported yet.")
+        const ext = photoFile.type === "image/png" ? "png" : photoFile.type === "image/webp" ? "webp" : "jpg"
         photo_path = `sightings/${user.id}/${crypto.randomUUID()}.${ext}`
         const { error } = await supabase.storage.from("dog-photos").upload(photo_path, photoFile, { upsert: false })
         if (error) throw error
@@ -69,7 +71,21 @@ export function SightingDialog({ open, onClose, defaultCenter, dogs, defaultDogI
       <Field label="Details"><textarea className={inputClass + " h-auto py-2"} rows={3} value={description} onChange={e => setDescription(e.target.value)} placeholder="Direction of travel, collar, behavior, landmarks…" /></Field>
       <Field label="Date and time seen"><input className={inputClass} type="datetime-local" value={seenAt} onChange={e => setSeenAt(e.target.value)} required /></Field>
       <LocationPicker point={point} onPointChange={setPoint} address={address} onAddressChange={setAddress} kind="sighting" mapKey={`sighting-picker-${mapInstanceKey}`} title="Choose the sighting location" hint="Search by address, use your private current location, or tap the map to place the green pin." />
-      <Field label="Photo (optional)"><label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed p-3">{photoPreview ? <img src={photoPreview} alt="Sighting preview" className="size-16 rounded-lg object-cover" /> : <ImagePlus className="size-6" />}<span className="text-sm">Choose an image up to 2 MB</span><input className="sr-only" type="file" accept="image/*" onChange={e => { const f=e.target.files?.[0]; if(f){setPhotoFile(f);setPhotoPreview(URL.createObjectURL(f))} }} /></label></Field>
+      <Field label="Photo (optional)"><label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed p-3">{photoPreview ? <img src={photoPreview} alt="Sighting preview" className="size-16 rounded-lg object-cover" /> : <ImagePlus className="size-6" />}<span className="text-sm">Choose an image up to 2 MB</span><input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={e => {
+        const f = e.target.files?.[0]
+        if (!f) return
+        const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"])
+        if (!allowedTypes.has(f.type)) {
+          setPhotoFile(null)
+          setPhotoPreview(null)
+          setError("Please choose a JPG, PNG, or WebP image. On iPhone, change Camera > Formats to Most Compatible if your photo is HEIC.")
+          e.currentTarget.value = ""
+          return
+        }
+        setError(null)
+        setPhotoFile(f)
+        setPhotoPreview(URL.createObjectURL(f))
+      }} /></label></Field>
       <Field label="Contact info (optional)"><input className={inputClass} value={contact} onChange={e => setContact(e.target.value)} placeholder="Phone, email, or social handle" /></Field>
       <CaptchaWidget onToken={setCaptchaToken} />
       {error && <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
