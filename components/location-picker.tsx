@@ -26,6 +26,13 @@ type Props = {
   hint?: string
 }
 
+function geolocationErrorMessage(error: GeolocationPositionError) {
+  if (error.code === error.PERMISSION_DENIED) return "Location permission is blocked. Allow location access in your browser settings, then try again."
+  if (error.code === error.POSITION_UNAVAILABLE) return "Your device could not determine its location. Turn on GPS or Location Services and try again."
+  if (error.code === error.TIMEOUT) return "Finding your location took too long. Move near a window or try again with GPS enabled."
+  return "Could not get your location. Check your device and browser location settings."
+}
+
 export function LocationPicker({
   point,
   onPointChange,
@@ -39,18 +46,36 @@ export function LocationPicker({
   const [searching, setSearching] = useState(false)
   const [geoLoading, setGeoLoading] = useState(false)
   const [live, setLive] = useState(false)
+  const [followLive, setFollowLive] = useState(true)
   const [privatePosition, setPrivatePosition] = useState<[number, number] | null>(null)
+  const [accuracy, setAccuracy] = useState<number | null>(null)
+  const [mapCenter, setMapCenter] = useState<[number, number]>(point)
+  const [recenterTrigger, setRecenterTrigger] = useState(0)
   const [message, setMessage] = useState<string | null>(null)
   const watchId = useRef<number | null>(null)
 
   useEffect(() => {
     return () => {
-      if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current)
+      if (watchId.current !== null && navigator.geolocation) navigator.geolocation.clearWatch(watchId.current)
     }
   }, [])
 
   function updateAddress(field: keyof AddressFields, value: string) {
     onAddressChange({ ...address, [field]: value })
+  }
+
+  function centerMap(next: [number, number]) {
+    setMapCenter(next)
+    setRecenterTrigger((value) => value + 1)
+  }
+
+  function applyPrivatePosition(position: GeolocationPosition, alsoSelectReportPin: boolean) {
+    const next: [number, number] = [position.coords.latitude, position.coords.longitude]
+    setPrivatePosition(next)
+    setAccuracy(position.coords.accuracy)
+    centerMap(next)
+    if (alsoSelectReportPin) onPointChange(next)
+    setMessage(`Location found. Accuracy is approximately ${Math.round(position.coords.accuracy)} metres.`)
   }
 
   async function findAddress() {
@@ -72,7 +97,9 @@ export function LocationPicker({
       if (!response.ok || typeof payload.lat !== "number" || typeof payload.lng !== "number") {
         throw new Error(payload.error || "Location not found. Try adding a nearby landmark.")
       }
-      onPointChange([payload.lat, payload.lng])
+      const next: [number, number] = [payload.lat, payload.lng]
+      onPointChange(next)
+      centerMap(next)
       setMessage(payload.display_name ? `Pin placed near: ${payload.display_name}` : "Pin placed from the address.")
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not search this address.")
@@ -81,27 +108,33 @@ export function LocationPicker({
     }
   }
 
+  function requestOneTimeLocation(highAccuracy = true) {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        applyPrivatePosition(position, true)
+        setGeoLoading(false)
+      },
+      (error) => {
+        if (highAccuracy && error.code !== error.PERMISSION_DENIED) {
+          setMessage("High-accuracy GPS was unavailable. Trying a faster location method…")
+          requestOneTimeLocation(false)
+          return
+        }
+        setMessage(geolocationErrorMessage(error))
+        setGeoLoading(false)
+      },
+      { enableHighAccuracy: highAccuracy, timeout: highAccuracy ? 12000 : 20000, maximumAge: highAccuracy ? 0 : 60000 },
+    )
+  }
+
   function useCurrentLocation() {
     if (!navigator.geolocation) {
       setMessage("Location access is not supported by this browser.")
       return
     }
     setGeoLoading(true)
-    setMessage("Waiting for location permission…")
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const next: [number, number] = [position.coords.latitude, position.coords.longitude]
-        setPrivatePosition(next)
-        onPointChange(next)
-        setMessage(`Current location found (accuracy about ${Math.round(position.coords.accuracy)} m).`)
-        setGeoLoading(false)
-      },
-      (error) => {
-        setMessage(error.code === error.PERMISSION_DENIED ? "Location permission was denied." : "Could not get your current location.")
-        setGeoLoading(false)
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 },
-    )
+    setMessage("Getting your location…")
+    requestOneTimeLocation(true)
   }
 
   function startLiveLocation() {
@@ -109,25 +142,47 @@ export function LocationPicker({
       setMessage("Location access is not supported by this browser.")
       return
     }
-    if (watchId.current !== null) return
+    if (watchId.current !== null) {
+      setFollowLive(true)
+      if (privatePosition) centerMap(privatePosition)
+      return
+    }
+
     setLive(true)
-    setMessage("Live location is on. The blue marker is private and is not saved automatically.")
+    setFollowLive(true)
+    setGeoLoading(true)
+    setMessage("Starting private live location…")
     watchId.current = navigator.geolocation.watchPosition(
       (position) => {
-        setPrivatePosition([position.coords.latitude, position.coords.longitude])
+        const next: [number, number] = [position.coords.latitude, position.coords.longitude]
+        setPrivatePosition(next)
+        setAccuracy(position.coords.accuracy)
+        if (followLive) centerMap(next)
+        setGeoLoading(false)
+        setMessage(`Live location is active. Accuracy is approximately ${Math.round(position.coords.accuracy)} metres.`)
       },
-      () => {
-        setMessage("Live location could not update. Check your device location settings.")
+      (error) => {
+        setMessage(geolocationErrorMessage(error))
+        setGeoLoading(false)
         stopLiveLocation()
       },
-      { enableHighAccuracy: false, timeout: 20000, maximumAge: 10000 },
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 },
     )
   }
 
   function stopLiveLocation() {
-    if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current)
+    if (watchId.current !== null && navigator.geolocation) navigator.geolocation.clearWatch(watchId.current)
     watchId.current = null
     setLive(false)
+    setFollowLive(false)
+    setGeoLoading(false)
+  }
+
+  function useBlueLocation() {
+    if (!privatePosition) return
+    onPointChange(privatePosition)
+    centerMap(privatePosition)
+    setMessage("The report pin now uses your current location.")
   }
 
   return (
@@ -146,8 +201,8 @@ export function LocationPicker({
             Find address
           </Button>
           <Button type="button" variant="outline" onClick={useCurrentLocation} disabled={geoLoading}>
-            {geoLoading ? <Loader2 className="size-4 animate-spin" /> : <Crosshair className="size-4" />}
-            Use my location
+            {geoLoading && !live ? <Loader2 className="size-4 animate-spin" /> : <Crosshair className="size-4" />}
+            Locate me
           </Button>
           {!live ? (
             <Button type="button" variant="outline" onClick={startLiveLocation}>
@@ -159,14 +214,19 @@ export function LocationPicker({
             </Button>
           )}
           {privatePosition && (
-            <Button type="button" onClick={() => onPointChange(privatePosition)}>
-              <MapPin className="size-4" /> Use blue location for report
-            </Button>
+            <>
+              <Button type="button" variant="outline" onClick={() => { setFollowLive(true); centerMap(privatePosition) }}>
+                <Crosshair className="size-4" /> Center on me
+              </Button>
+              <Button type="button" onClick={useBlueLocation}>
+                <MapPin className="size-4" /> Use this location for report
+              </Button>
+            </>
           )}
         </div>
 
         <p className="text-xs text-muted-foreground">
-          The blue marker is visible only on your device. It is not uploaded or shared unless you press “Use blue location for report.”
+          The blue marker and accuracy circle are visible only on your device. They are never uploaded or shared unless you choose “Use this location for report.”
         </p>
 
         <div className="h-56 overflow-hidden rounded-xl border border-border">
@@ -176,13 +236,18 @@ export function LocationPicker({
             sightings={[]}
             selectedId={null}
             onSelect={() => {}}
-            center={privatePosition || point}
-            recenterTrigger={privatePosition ? privatePosition[0] + privatePosition[1] : point[0] + point[1]}
+            center={mapCenter}
+            recenterTrigger={recenterTrigger}
+            recenterZoom={17}
             pickMode
             pickKind={kind}
             pickedPoint={point}
             privateUserPoint={privatePosition}
-            onPick={(lat, lng) => onPointChange([lat, lng])}
+            privateUserAccuracy={accuracy}
+            onPick={(lat, lng) => {
+              onPointChange([lat, lng])
+              setFollowLive(false)
+            }}
           />
         </div>
 

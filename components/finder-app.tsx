@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
-import { PawPrint, Plus, Search, LocateFixed, User, Eye, ShieldCheck } from "lucide-react"
+import { PawPrint, Plus, Search, LocateFixed, User, Eye, ShieldCheck, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DogCard } from "@/components/dog-card"
 import { ReportDialog } from "@/components/report-dialog"
@@ -31,6 +31,10 @@ export function FinderApp({ initialDogs, initialCounts, initialSightings }: Prop
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [center, setCenter] = useState<[number, number]>(initialDogs.length ? [initialDogs[0].latitude, initialDogs[0].longitude] : DEFAULT_CENTER)
   const [recenterTrigger, setRecenterTrigger] = useState(0)
+  const [mapUserPoint, setMapUserPoint] = useState<[number, number] | null>(null)
+  const [mapUserAccuracy, setMapUserAccuracy] = useState<number | null>(null)
+  const [locating, setLocating] = useState(false)
+  const [locationMessage, setLocationMessage] = useState<string | null>(null)
   const [user, setUser] = useState<{ id:string; email?:string } | null>(null)
   const [adminRole, setAdminRole] = useState<string | null>(null)
   const [authOpen,setAuthOpen]=useState(false), [accountOpen,setAccountOpen]=useState(false), [reportOpen,setReportOpen]=useState(false), [sightingOpen,setSightingOpen]=useState(false)
@@ -64,7 +68,27 @@ export function FinderApp({ initialDogs, initialCounts, initialSightings }: Prop
   const filtered=useMemo(()=>{const q=query.trim().toLowerCase();return q?dogs.filter(d=>d.name.toLowerCase().includes(q)||(d.breed_details||"").toLowerCase().includes(q)||(d.last_seen||"").toLowerCase().includes(q)):dogs},[dogs,query])
   const focus=(lat:number,lng:number)=>{setCenter([lat,lng]);setRecenterTrigger(t=>t+1)}
   const selectDog=useCallback((dog:MissingDog)=>{setSelectedId(dog.id);focus(dog.latitude,dog.longitude);setDetailDog(dog)},[])
-  function locateMe(){navigator.geolocation?.getCurrentPosition(p=>focus(p.coords.latitude,p.coords.longitude))}
+  function locateMe(){
+    if(!navigator.geolocation){setLocationMessage("Location is not supported by this browser.");return}
+    setLocating(true)
+    setLocationMessage("Getting your location…")
+    navigator.geolocation.getCurrentPosition(
+      p=>{
+        const next:[number,number]=[p.coords.latitude,p.coords.longitude]
+        setMapUserPoint(next)
+        setMapUserAccuracy(p.coords.accuracy)
+        focus(next[0],next[1])
+        setLocationMessage(`You are here (accuracy about ${Math.round(p.coords.accuracy)} m).`)
+        setLocating(false)
+      },
+      e=>{
+        const msg=e.code===e.PERMISSION_DENIED?"Location permission is blocked. Allow it in your browser settings.":e.code===e.POSITION_UNAVAILABLE?"Your location is unavailable. Turn on GPS or Location Services.":"Location request timed out. Try again near a window."
+        setLocationMessage(msg)
+        setLocating(false)
+      },
+      {enableHighAccuracy:true,timeout:15000,maximumAge:10000}
+    )
+  }
   const totalHelpers=Object.values(counts).reduce((a,b)=>a+b,0)
   function requireLogin(action:()=>void){if(!user)setAuthOpen(true);else action()}
 
@@ -78,7 +102,7 @@ export function FinderApp({ initialDogs, initialCounts, initialSightings }: Prop
       </div>
     </header>
     <div className="flex min-h-0 flex-1 flex-col-reverse md:flex-row"><aside className="flex w-full shrink-0 flex-col border-t bg-background md:h-full md:w-96 md:border-r md:border-t-0"><div className="border-b p-4"><div className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search name, breed, area…" className="h-10 w-full rounded-xl border bg-card pl-9 pr-3 text-sm outline-none"/></div><div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground"><span><span className="inline-block size-2 rounded-full bg-orange-600"/> Missing reports</span><span><span className="inline-block size-2 rounded-full bg-green-600"/> Sightings</span></div></div><div className="flex-1 space-y-3 overflow-y-auto p-4">{filtered.map(d=><DogCard key={d.id} dog={d} volunteerCount={counts[d.id]||0} selected={d.id===selectedId} onClick={()=>selectDog(d)}/>)}</div></aside>
-      <main className="relative z-0 min-h-0 flex-1"><DogMap dogs={filtered} sightings={sightings} selectedId={selectedId} onSelect={d=>{setSelectedId(d.id);focus(d.latitude,d.longitude)}} onSelectSighting={s=>{focus(s.latitude,s.longitude);setDetailSighting(s)}} center={center} recenterTrigger={recenterTrigger}/><Button variant="outline" size="icon-lg" onClick={locateMe} className="absolute bottom-6 right-4 z-20 rounded-full bg-card shadow-lg"><LocateFixed className="size-5"/></Button></main>
+      <main className="relative z-0 min-h-0 flex-1"><DogMap dogs={filtered} sightings={sightings} selectedId={selectedId} onSelect={d=>{setSelectedId(d.id);focus(d.latitude,d.longitude)}} onSelectSighting={s=>{focus(s.latitude,s.longitude);setDetailSighting(s)}} center={center} recenterTrigger={recenterTrigger} recenterZoom={mapUserPoint?17:13} privateUserPoint={mapUserPoint} privateUserAccuracy={mapUserAccuracy}/><Button type="button" variant="outline" size="icon-lg" onClick={locateMe} disabled={locating} title="Show my private location" aria-label="Show my private location" className="absolute bottom-6 right-4 z-20 rounded-full bg-card shadow-lg">{locating?<Loader2 className="size-5 animate-spin"/>:<LocateFixed className="size-5"/>}</Button>{locationMessage&&<div className="absolute bottom-20 right-4 z-20 max-w-xs rounded-lg border bg-card/95 px-3 py-2 text-xs shadow-lg backdrop-blur" role="status">{locationMessage}</div>}</main>
     </div>
     <TermsSafetyButton />
     <ReportDialog open={reportOpen} onClose={()=>setReportOpen(false)} defaultCenter={center} onReported={d=>{setDogs(v=>[d,...v]);focus(d.latitude,d.longitude)}}/>

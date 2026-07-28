@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo } from "react"
-import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet"
+import { Circle, MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet"
 import L from "leaflet"
 import type { MissingDog, Sighting } from "@/lib/types"
 import "leaflet/dist/leaflet.css"
@@ -19,7 +19,6 @@ function pinIcon(kind: "dog" | "sighting", active = false) {
   })
 }
 
-
 function privateLocationIcon() {
   return L.divIcon({
     html: `<div style="position:relative;transform:translate(-50%,-50%);"><div style="width:20px;height:20px;border-radius:999px;background:#2563eb;border:3px solid white;box-shadow:0 0 0 7px rgba(37,99,235,.2),0 2px 8px rgba(0,0,0,.3);"></div></div>`,
@@ -34,9 +33,15 @@ function ClickHandler({ onPick }: { onPick?: (lat: number, lng: number) => void 
   return null
 }
 
-function Recenter({ center, trigger }: { center: [number, number]; trigger: number }) {
+function MapController({ center, trigger, zoom }: { center: [number, number]; trigger: number; zoom: number }) {
   const map = useMap()
-  useEffect(() => { map.flyTo(center, Math.max(map.getZoom(), 13), { duration: 0.8 }) }, [center, trigger, map])
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      map.invalidateSize()
+      map.flyTo(center, Math.max(map.getZoom(), zoom), { duration: 0.7 })
+    }, 100)
+    return () => window.clearTimeout(timer)
+  }, [center, trigger, zoom, map])
   return null
 }
 
@@ -48,14 +53,16 @@ type Props = {
   onSelectSighting?: (sighting: Sighting) => void
   center: [number, number]
   recenterTrigger: number
+  recenterZoom?: number
   pickMode?: boolean
   pickedPoint?: [number, number] | null
   pickKind?: "dog" | "sighting"
   onPick?: (lat: number, lng: number) => void
   privateUserPoint?: [number, number] | null
+  privateUserAccuracy?: number | null
 }
 
-export default function DogMap({ dogs, sightings = [], selectedId, onSelect, onSelectSighting, center, recenterTrigger, pickMode, pickedPoint, pickKind = "dog", onPick, privateUserPoint = null }: Props) {
+export default function DogMap({ dogs, sightings = [], selectedId, onSelect, onSelectSighting, center, recenterTrigger, recenterZoom = 13, pickMode, pickedPoint, pickKind = "dog", onPick, privateUserPoint = null, privateUserAccuracy = null }: Props) {
   const dogMarkers = useMemo(() => dogs.map((dog) => (
     <Marker key={`dog-${dog.id}`} position={[dog.latitude, dog.longitude]} icon={pinIcon("dog", dog.id === selectedId || !selectedId)} eventHandlers={{ click: () => onSelect(dog) }} />
   )), [dogs, selectedId, onSelect])
@@ -68,8 +75,9 @@ export default function DogMap({ dogs, sightings = [], selectedId, onSelect, onS
     <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
     {dogMarkers}{sightingMarkers}
     {pickMode && pickedPoint && <Marker position={pickedPoint} icon={pinIcon(pickKind, true)} />}
+    {privateUserPoint && privateUserAccuracy && <Circle center={privateUserPoint} radius={Math.max(privateUserAccuracy, 5)} pathOptions={{ color: "#2563eb", fillColor: "#60a5fa", fillOpacity: 0.14, weight: 1 }} interactive={false} />}
     {privateUserPoint && <Marker position={privateUserPoint} icon={privateLocationIcon()} interactive={false} />}
     <ClickHandler onPick={pickMode ? onPick : undefined} />
-    <Recenter center={center} trigger={recenterTrigger} />
+    <MapController center={center} trigger={recenterTrigger} zoom={recenterZoom} />
   </MapContainer>
 }
