@@ -9,8 +9,7 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   )
 
-  await supabase.rpc("queue_expired_pawfinder_photos")
-  const { data: rows, error } = await supabase.from("photo_cleanup_queue").select("id,bucket_id,object_path").is("processed_at", null).limit(100)
+  const { data: rows, error } = await supabase.from("photo_cleanup_queue").select("id,bucket_id,object_path").is("processed_at", null).limit(500)
   if (error) return Response.json({ error: error.message }, { status: 500 })
 
   let removed = 0
