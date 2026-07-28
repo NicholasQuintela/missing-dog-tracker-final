@@ -6,12 +6,25 @@ import { createClient } from "@/lib/supabase/client"
 import type { Sighting } from "@/lib/types"
 import {useState} from "react"
 import {ReportAbuseDialog} from "@/components/report-abuse-dialog"
+import { removeStoredPhoto } from "@/lib/storage-photo"
 
 type Props = { open:boolean; onClose:()=>void; sighting:Sighting|null; currentUserId?:string|null; onDeleted:(id:string)=>void }
 export function SightingDetailDialog({open,onClose,sighting,currentUserId,onDeleted}:Props){ const [abuseOpen,setAbuseOpen]=useState(false)
   if(!sighting) return null
   async function share(){ const url=`${window.location.origin}/?sighting=${sighting.id}`; if(navigator.share) await navigator.share({title:sighting.title,text:sighting.description||"Pet Alert PH sighting",url}); else {await navigator.clipboard.writeText(url); alert("Sighting link copied.")} }
-  async function remove(){ if(!confirm("Delete this sighting? This cannot be undone.")) return; const supabase=createClient(); const {error}=await supabase.from("sightings").delete().eq("id",sighting.id); if(error){alert(error.message);return} onDeleted(sighting.id);onClose() }
+  async function remove(){
+    if(!confirm("Delete this sighting? Its uploaded photo will also be permanently deleted.")) return
+    const supabase=createClient()
+    try {
+      await removeStoredPhoto(supabase,sighting.photo_path,sighting.photo_url)
+      const {error}=await supabase.from("sightings").delete().eq("id",sighting.id)
+      if(error) throw error
+    } catch(error) {
+      alert(error instanceof Error ? error.message : "Unable to delete this sighting.")
+      return
+    }
+    onDeleted(sighting.id);onClose()
+  }
   return <Modal open={open} onClose={onClose} title={sighting.title} description="Community sighting · green map pin"><div className="flex flex-col gap-4">
     {sighting.photo_url && <img src={sighting.photo_url} alt={sighting.title} className="max-h-64 w-full rounded-2xl object-cover" />}
     {sighting.description && <p className="text-sm leading-relaxed">{sighting.description}</p>}

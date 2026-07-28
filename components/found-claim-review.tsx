@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { CheckCircle2, Loader2, MessageCircle, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
+import { removeStoredPhoto } from "@/lib/storage-photo"
 
 type Claim = {
   id: string
@@ -16,7 +17,7 @@ type Claim = {
   created_at: string
 }
 
-type Dog = { id: string; name: string; owner_id: string | null; status: string }
+type Dog = { id: string; name: string; owner_id: string | null; status: string; photo_url?: string | null; photo_path?: string | null }
 
 export function FoundClaimReview({
   claimId,
@@ -52,7 +53,7 @@ export function FoundClaimReview({
       const nextClaim = claimResult.data as Claim
       setClaim(nextClaim)
       const [dogResult, chatResult] = await Promise.all([
-        supabase.from("missing_dogs").select("id,name,owner_id,status").eq("id", nextClaim.dog_id).single(),
+        supabase.from("missing_dogs").select("id,name,owner_id,status,photo_url,photo_path").eq("id", nextClaim.dog_id).single(),
         supabase.from("conversations").select("id").eq("source_type", "found").eq("source_id", nextClaim.id).maybeSingle(),
       ])
       if (!active) return
@@ -65,6 +66,7 @@ export function FoundClaimReview({
   }, [claimId, supabase])
 
   async function review(decision: "confirmed" | "rejected") {
+    if (decision === "confirmed" && !confirm("Confirm that this is your pet? The missing-report photo will be permanently deleted.")) return
     setReviewing(true)
     setError(null)
     const result = await supabase.rpc("review_found_claim", { p_claim_id: claimId, p_decision: decision })
@@ -72,6 +74,16 @@ export function FoundClaimReview({
       setError(result.error.message)
       setReviewing(false)
       return
+    }
+    if (decision === "confirmed" && dog) {
+      try {
+        await removeStoredPhoto(supabase, dog.photo_path, dog.photo_url)
+        const clearResult = await supabase.from("missing_dogs").update({ photo_url: null, photo_path: null }).eq("id", dog.id)
+        if (clearResult.error) throw clearResult.error
+        setDog(current => current ? { ...current, status: "found", photo_url: null, photo_path: null } : current)
+      } catch (photoError) {
+        setError(`The pet was marked found, but the old report photo could not be removed. Please report this to support. ${photoError instanceof Error ? photoError.message : ""}`)
+      }
     }
     setClaim(current => current ? { ...current, status: decision } : current)
     if (result.data) setConversationId(result.data as string)

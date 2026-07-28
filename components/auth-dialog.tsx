@@ -15,6 +15,7 @@ export function AuthDialog({ open, onClose }: Props) {
   const [mode, setMode] = useState<"login" | "signup">("login")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [username, setUsername] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -33,6 +34,7 @@ export function AuthDialog({ open, onClose }: Props) {
         if (error) throw error
         onClose()
       } else {
+        if (password !== confirmPassword) throw new Error("Passwords do not match.")
         if (!accepted) throw new Error("Please accept the Terms and Privacy Notice.")
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
@@ -54,7 +56,28 @@ export function AuthDialog({ open, onClose }: Props) {
       <form onSubmit={submit} className="flex flex-col gap-4">
         <Field label="Email" htmlFor="auth-email"><input id="auth-email" type="email" required value={email} onChange={e => setEmail(e.target.value)} className={inputClass} placeholder="you@example.com" /></Field>
         {mode === "signup" && <Field label="Public username" htmlFor="auth-username" hint="Shown publicly instead of your email."><input id="auth-username" required minLength={3} maxLength={24} pattern="[A-Za-z0-9._]+" value={username} onChange={e => setUsername(e.target.value)} className={inputClass} placeholder="e.g. doghelper.ph" /></Field>}
-        <Field label="Password" htmlFor="auth-password"><input id="auth-password" type="password" required minLength={6} value={password} onChange={e => setPassword(e.target.value)} className={inputClass} placeholder="At least 6 characters" /></Field>
+        <Field label="Password" htmlFor="auth-password"><input id="auth-password" type="password" required minLength={6} autoComplete={mode === "login" ? "current-password" : "new-password"} value={password} onChange={e => setPassword(e.target.value)} className={inputClass} placeholder="At least 6 characters" /></Field>
+        {mode === "signup" && (
+          <Field
+            label="Confirm password"
+            htmlFor="auth-confirm-password"
+            hint={confirmPassword && password !== confirmPassword ? "Passwords do not match yet." : "Re-enter the same password before creating your account."}
+          >
+            <input
+              id="auth-confirm-password"
+              name="confirmPassword"
+              type="password"
+              required
+              minLength={6}
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              className={inputClass}
+              placeholder="Confirm your password"
+              aria-invalid={Boolean(confirmPassword && password !== confirmPassword)}
+            />
+          </Field>
+        )}
         {mode === "login" && <button
           type="button"
           className="-mt-1 self-start text-sm font-semibold text-primary underline underline-offset-4 hover:text-primary/80"
@@ -66,8 +89,8 @@ export function AuthDialog({ open, onClose }: Props) {
         {mode === "signup" && <label className="flex items-start gap-2 text-xs text-muted-foreground"><input type="checkbox" className="mt-0.5" checked={accepted} onChange={e=>setAccepted(e.target.checked)} /><span>I agree to the <a href="/terms" target="_blank" className="font-semibold text-primary underline">Terms of Use</a> and acknowledge the <a href="/privacy" target="_blank" className="font-semibold text-primary underline">Privacy Notice</a>.</span></label>}
         {error && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
         {message && <p className="rounded-lg bg-accent/10 px-3 py-2 text-sm text-foreground">{message}</p>}
-        <Button type="submit" size="lg" disabled={submitting}>{submitting ? <><Loader2 className="size-4 animate-spin" /> Please wait…</> : mode === "login" ? <><LogIn className="size-4" /> Log in</> : <><UserPlus className="size-4" /> Create account</>}</Button>
-        <button type="button" className="text-sm font-semibold text-primary underline-offset-4 hover:underline" onClick={() => { setMode(mode === "login" ? "signup" : "login"); setError(null); setMessage(null) }}>
+        <Button type="submit" size="lg" disabled={submitting || (mode === "signup" && (!confirmPassword || password !== confirmPassword))}>{submitting ? <><Loader2 className="size-4 animate-spin" /> Please wait…</> : mode === "login" ? <><LogIn className="size-4" /> Log in</> : <><UserPlus className="size-4" /> Create account</>}</Button>
+        <button type="button" className="text-sm font-semibold text-primary underline-offset-4 hover:underline" onClick={() => { setMode(mode === "login" ? "signup" : "login"); setConfirmPassword(""); setError(null); setMessage(null) }}>
           {mode === "login" ? "Need an account? Sign up" : "Already have an account? Log in"}
         </button>
       </form>

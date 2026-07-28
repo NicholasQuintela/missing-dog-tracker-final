@@ -11,6 +11,7 @@ import { ReportAbuseDialog } from "@/components/report-abuse-dialog"
 import { FoundClaimsPanel } from "@/components/found-claims-panel"
 import { EditReportDialog } from "@/components/edit-report-dialog"
 import { ReportCommunity } from "@/components/report-community"
+import { removeStoredPhoto } from "@/lib/storage-photo"
 
 type Props = {
   open: boolean
@@ -117,8 +118,14 @@ export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound, onSi
 
   async function deleteReport() {
     if (!confirm(`Delete ${dog.name}'s report? This also removes linked sightings, volunteers, chats, and notifications.`)) return
-    const { error } = await supabase.from("missing_dogs").delete().eq("id", dog.id)
-    if (error) { alert(error.message); return }
+    try {
+      await removeStoredPhoto(supabase, dog.photo_path, dog.photo_url)
+      const { error } = await supabase.from("missing_dogs").delete().eq("id", dog.id)
+      if (error) throw error
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Unable to delete this report.")
+      return
+    }
     onDeleted(dog.id); closeDetail()
   }
 
@@ -217,7 +224,7 @@ export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound, onSi
           </div>
         )}
 
-        {currentUserId === dog.owner_id && <FoundClaimsPanel dogId={dog.id} onConfirmed={()=>onUpdated({...dog,status:"found"})} />}
+        {currentUserId === dog.owner_id && <FoundClaimsPanel dogId={dog.id} dogPhotoPath={dog.photo_path} dogPhotoUrl={dog.photo_url} onConfirmed={()=>onUpdated({...dog,status:"found",photo_url:null,photo_path:null})} />}
 
         {currentUserId === dog.owner_id && <Button variant="outline" onClick={()=>setEditOpen(true)}><Pencil className="size-4"/>Edit report</Button>}
 

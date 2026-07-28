@@ -2,5 +2,21 @@
 import {useEffect,useMemo,useState} from "react"
 import {Button} from "@/components/ui/button"
 import {createClient} from "@/lib/supabase/client"
+import {removeStoredPhoto} from "@/lib/storage-photo"
 type Claim={id:string;finder_name:string;note:string|null;photo_url:string|null;status:string;created_at:string}
-export function FoundClaimsPanel({dogId,onConfirmed}:{dogId:string;onConfirmed:()=>void}){const supabase=useMemo(()=>createClient(),[]);const [claims,setClaims]=useState<Claim[]>([]);useEffect(()=>{supabase.from("found_claims").select("*").eq("dog_id",dogId).order("created_at",{ascending:false}).then(r=>setClaims((r.data as Claim[])||[]))},[dogId,supabase]);async function review(id:string,decision:"confirmed"|"rejected"){const {error}=await supabase.rpc("review_found_claim",{p_claim_id:id,p_decision:decision});if(error){alert(error.message);return}setClaims(v=>v.map(c=>c.id===id?{...c,status:decision}:c));if(decision==="confirmed")onConfirmed()}if(!claims.length)return null;return <div className="flex flex-col gap-3 rounded-2xl border p-4"><h3 className="font-bold">Possible matches awaiting review</h3>{claims.map(c=><div key={c.id} className="rounded-xl bg-muted p-3"><p className="font-semibold">{c.finder_name}</p>{c.note&&<p className="mt-1 text-sm text-muted-foreground">{c.note}</p>}{c.photo_url&&<img src={c.photo_url} alt="Found claim proof" className="mt-3 max-h-48 w-full rounded-xl object-cover"/>}<p className="mt-2 text-xs capitalize text-muted-foreground">Status: {c.status}</p>{c.status==="pending"&&<div className="mt-3 flex gap-2"><Button onClick={()=>review(c.id,"confirmed")}>Yes, this is my pet</Button><Button variant="outline" onClick={()=>review(c.id,"rejected")}>No, not my pet</Button></div>}</div>)}</div>}
+export function FoundClaimsPanel({dogId,dogPhotoPath,dogPhotoUrl,onConfirmed}:{dogId:string;dogPhotoPath?:string|null;dogPhotoUrl?:string|null;onConfirmed:()=>void}){const supabase=useMemo(()=>createClient(),[]);const [claims,setClaims]=useState<Claim[]>([]);useEffect(()=>{supabase.from("found_claims").select("*").eq("dog_id",dogId).order("created_at",{ascending:false}).then(r=>setClaims((r.data as Claim[])||[]))},[dogId,supabase]);async function review(id:string,decision:"confirmed"|"rejected"){
+  if(decision==="confirmed"&&!confirm("Confirm that this is your pet? The missing-report photo will be permanently deleted.")) return
+  const {error}=await supabase.rpc("review_found_claim",{p_claim_id:id,p_decision:decision})
+  if(error){alert(error.message);return}
+  if(decision==="confirmed"){
+    try {
+      await removeStoredPhoto(supabase,dogPhotoPath,dogPhotoUrl)
+      const clearResult=await supabase.from("missing_dogs").update({photo_url:null,photo_path:null}).eq("id",dogId)
+      if(clearResult.error) throw clearResult.error
+    } catch(error){
+      alert(`The pet was marked found, but the old report photo could not be removed. Please report this to support. ${error instanceof Error?error.message:""}`)
+    }
+    onConfirmed()
+  }
+  setClaims(v=>v.map(c=>c.id===id?{...c,status:decision}:c))
+}if(!claims.length)return null;return <div className="flex flex-col gap-3 rounded-2xl border p-4"><h3 className="font-bold">Possible matches awaiting review</h3>{claims.map(c=><div key={c.id} className="rounded-xl bg-muted p-3"><p className="font-semibold">{c.finder_name}</p>{c.note&&<p className="mt-1 text-sm text-muted-foreground">{c.note}</p>}{c.photo_url&&<img src={c.photo_url} alt="Found claim proof" className="mt-3 max-h-48 w-full rounded-xl object-cover"/>}<p className="mt-2 text-xs capitalize text-muted-foreground">Status: {c.status}</p>{c.status==="pending"&&<div className="mt-3 flex gap-2"><Button onClick={()=>review(c.id,"confirmed")}>Yes, this is my pet</Button><Button variant="outline" onClick={()=>review(c.id,"rejected")}>No, not my pet</Button></div>}</div>)}</div>}
