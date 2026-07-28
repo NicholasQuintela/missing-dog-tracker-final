@@ -96,12 +96,22 @@ export function FinderApp({ initialDogs, initialCounts, initialSightings }: Prop
   function requireLogin(action:()=>void){if(!user)setAuthOpen(true);else action()}
 
   return <div className="flex h-dvh flex-col overflow-hidden">
-    <header className="relative z-40 flex items-center justify-between gap-3 border-b bg-card/90 px-4 py-3 backdrop-blur sm:px-6">
-      <div className="flex items-center gap-2.5"><div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground"><PawPrint className="size-5"/></div><div><h1 className="font-serif text-lg font-extrabold">Pet Alert PH</h1><p className="hidden text-xs text-muted-foreground sm:block">Bringing lost dogs home, together</p></div></div>
-      <div className="flex items-center gap-2"><span className="hidden text-xs text-muted-foreground lg:block">{dogs.length} reports · {sightings.length} sightings · {totalHelpers} helping</span>
-        {adminRole&&<Button variant="outline" onClick={()=>window.open("/admin/moderation","_blank","noopener,noreferrer")}><ShieldCheck className="size-4"/><span className="hidden md:inline">Moderation</span></Button>} {user&&<NotificationBell userId={user.id}/>} {user?<Button variant="outline" size="icon" className="rounded-full" onClick={()=>setAccountOpen(true)}><User className="size-4"/></Button>:<Button variant="outline" onClick={()=>setAuthOpen(true)}>Log in</Button>}
-        <Button data-tour="report-sighting" type="button" variant="outline" onClick={() => requireLogin(() => { setSightingDogId(null); setSightingOpen(true) })}><Eye className="size-4"/><span className="hidden sm:inline">Report sighting</span></Button>
-        <Button data-tour="report-missing" type="button" onClick={()=>requireLogin(()=>setReportOpen(true))}><Plus className="size-4"/><span className="hidden sm:inline">Report missing dog</span><span className="sm:hidden">Report</span></Button>
+    <header className="relative z-40 border-b bg-card/90 px-3 py-2 backdrop-blur sm:flex sm:items-center sm:justify-between sm:gap-3 sm:px-6 sm:py-3">
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2"><div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground"><PawPrint className="size-5"/></div><div className="min-w-0"><h1 className="truncate font-serif text-base font-extrabold sm:text-lg">Pet Alert PH</h1><p className="hidden text-xs text-muted-foreground sm:block">Bringing lost dogs home, together</p></div></div>
+        <div className="flex shrink-0 items-center gap-1 sm:hidden">
+          {adminRole&&<Button variant="outline" size="icon" className="size-9 rounded-full" onClick={()=>window.open("/admin/moderation","_blank","noopener,noreferrer")} aria-label="Moderation"><ShieldCheck className="size-4"/></Button>}
+          {user&&<NotificationBell userId={user.id}/>} 
+          {user?<Button variant="outline" size="icon" className="size-9 rounded-full" onClick={()=>setAccountOpen(true)} aria-label="Account"><User className="size-4"/></Button>:<Button variant="outline" className="h-9 px-3 text-xs" onClick={()=>setAuthOpen(true)}>Log in</Button>}
+        </div>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-2 sm:mt-0 sm:flex sm:items-center">
+        <span className="hidden text-xs text-muted-foreground lg:block">{dogs.length} reports · {sightings.length} sightings · {totalHelpers} helping</span>
+        <div className="hidden items-center gap-2 sm:flex">
+          {adminRole&&<Button variant="outline" onClick={()=>window.open("/admin/moderation","_blank","noopener,noreferrer")}><ShieldCheck className="size-4"/><span className="hidden md:inline">Moderation</span></Button>} {user&&<NotificationBell userId={user.id}/>} {user?<Button variant="outline" size="icon" className="rounded-full" onClick={()=>setAccountOpen(true)}><User className="size-4"/></Button>:<Button variant="outline" onClick={()=>setAuthOpen(true)}>Log in</Button>}
+        </div>
+        <Button data-tour="report-sighting" type="button" variant="outline" className="min-w-0 justify-center px-2 text-xs sm:px-4 sm:text-sm" onClick={() => requireLogin(() => { setSightingDogId(null); setSightingOpen(true) })}><Eye className="size-4 shrink-0"/><span className="truncate">Report sighting</span></Button>
+        <Button data-tour="report-missing" type="button" className="min-w-0 justify-center px-2 text-xs sm:px-4 sm:text-sm" onClick={()=>requireLogin(()=>setReportOpen(true))}><Plus className="size-4 shrink-0"/><span className="truncate sm:hidden">Missing pet</span><span className="hidden sm:inline">Report missing dog</span></Button>
       </div>
     </header>
     <div className="relative min-h-0 flex-1 overflow-hidden md:flex">

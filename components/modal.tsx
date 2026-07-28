@@ -44,18 +44,18 @@ export function Modal({ open, onClose, title, description, children }: ModalProp
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative z-10 flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-border bg-card shadow-2xl animate-in slide-in-from-bottom-4 sm:rounded-3xl"
+        className="relative z-10 mx-2 flex max-h-[calc(100dvh-0.5rem)] w-[calc(100%-1rem)] max-w-lg flex-col overflow-hidden rounded-t-3xl border border-border bg-card shadow-2xl animate-in slide-in-from-bottom-4 sm:mx-0 sm:max-h-[92vh] sm:w-full sm:rounded-3xl"
       >
-        <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
-          <div>
-            <h2 className="font-serif text-xl font-extrabold text-foreground text-balance">{title}</h2>
-            {description && <p className="mt-1 text-sm text-muted-foreground text-pretty">{description}</p>}
+        <div className="relative shrink-0 border-b border-border px-4 py-4 pr-14 sm:px-6 sm:py-5 sm:pr-16">
+          <div className="min-w-0">
+            <h2 className="break-words font-serif text-lg font-extrabold leading-tight text-foreground text-balance sm:text-xl">{title}</h2>
+            {description && <p className="mt-1 break-words text-sm text-muted-foreground text-pretty">{description}</p>}
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close">
-            <X className="size-4" />
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close" className="absolute right-2 top-2 shrink-0 rounded-full sm:right-4 sm:top-4">
+            <X className="size-5" />
           </Button>
         </div>
-        <div className="overflow-y-auto px-6 py-5">{children}</div>
+        <div className="min-w-0 overflow-y-auto overflow-x-hidden px-4 py-4 sm:px-6 sm:py-5">{children}</div>
       </div>
     </div>,
     document.body,
