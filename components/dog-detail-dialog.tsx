@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Gift, MapPin, Phone, Users, Clock, PawPrint, CheckCircle2, Share2, Trash2, Eye, Flag, Pencil } from "lucide-react"
 import { Modal } from "@/components/modal"
 import { Button } from "@/components/ui/button"
@@ -33,6 +33,7 @@ export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound, onSi
   const [volunteerCount, setVolunteerCount] = useState(0)
   const [abuseOpen, setAbuseOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const historyMarkerRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!open || !dog) return
@@ -68,6 +69,41 @@ export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound, onSi
     }
   }, [open, dog, supabase])
 
+
+  const closeDetail = useCallback(() => {
+    const marker = historyMarkerRef.current
+    if (marker && window.history.state?.petAlertReportDetail === marker) {
+      window.history.back()
+      return
+    }
+    onClose()
+  }, [onClose])
+
+  useEffect(() => {
+    if (!open || window.innerWidth >= 640) return
+
+    const marker = `pet-alert-report-${Date.now()}-${Math.random()}`
+    historyMarkerRef.current = marker
+    window.history.pushState(
+      { ...(window.history.state || {}), petAlertReportDetail: marker },
+      "",
+      window.location.href,
+    )
+
+    const handlePopState = () => {
+      if (historyMarkerRef.current === marker) {
+        historyMarkerRef.current = null
+        onClose()
+      }
+    }
+
+    window.addEventListener("popstate", handlePopState)
+    return () => {
+      window.removeEventListener("popstate", handlePopState)
+      if (historyMarkerRef.current === marker) historyMarkerRef.current = null
+    }
+  }, [open, onClose])
+
   if (!dog) return null
 
   const isFound = dog.status === "found"
@@ -82,11 +118,11 @@ export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound, onSi
     if (!confirm(`Delete ${dog.name}'s report? This also removes linked sightings, volunteers, chats, and notifications.`)) return
     const { error } = await supabase.from("missing_dogs").delete().eq("id", dog.id)
     if (error) { alert(error.message); return }
-    onDeleted(dog.id); onClose()
+    onDeleted(dog.id); closeDetail()
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={dog.name}>
+    <Modal open={open} onClose={closeDetail} title={dog.name} mobileDismissGestures>
       <div className="flex flex-col gap-5">
         <div className="overflow-hidden rounded-2xl bg-muted">
           {dog.photo_url ? (
