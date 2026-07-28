@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client"
 import { CaptchaWidget } from "@/components/captcha-widget"
 import { LocationPicker, type AddressFields } from "@/components/location-picker"
 import type { MissingDog } from "@/lib/types"
+import { REWARD_CURRENCIES } from "@/lib/currency"
 
 
 type Props = {
@@ -31,6 +32,7 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
   const [breed, setBreed] = useState("")
   const [lastSeen, setLastSeen] = useState("")
   const [reward, setReward] = useState("")
+  const [rewardCurrency, setRewardCurrency] = useState("PHP")
   const [contact, setContact] = useState("")
   const [confirmed, setConfirmed] = useState(false)
 
@@ -39,6 +41,7 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
     setBreed("")
     setLastSeen("")
     setReward("")
+    setRewardCurrency("PHP")
     setContact("")
     setConfirmed(false)
     setPhotoFile(null)
@@ -99,6 +102,7 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
           photo_url,
           photo_path,
           reward: reward ? Number(reward) : 0,
+          reward_currency: rewardCurrency,
           contact_info: contact.trim(),
           latitude: point[0],
           longitude: point[1],
@@ -163,15 +167,12 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
             />
           </Field>
           <Field label="Reward (optional)" htmlFor="reward">
-            <input
-              id="reward"
-              type="number"
-              min="0"
-              value={reward}
-              onChange={(e) => setReward(e.target.value)}
-              placeholder="e.g. 200"
-              className={inputClass}
-            />
+            <div className="flex gap-2">
+              <input id="reward" type="number" min="0" step="0.01" value={reward} onChange={(e) => setReward(e.target.value)} placeholder="e.g. 200" className={inputClass + " min-w-0 flex-1"} />
+              <select aria-label="Reward currency" value={rewardCurrency} onChange={e => setRewardCurrency(e.target.value)} className="h-11 w-28 rounded-xl border border-input bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring">
+                {REWARD_CURRENCIES.map(([code, label]) => <option key={code} value={code}>{code} · {label}</option>)}
+              </select>
+            </div>
           </Field>
         </div>
 

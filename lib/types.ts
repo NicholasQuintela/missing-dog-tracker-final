@@ -6,6 +6,7 @@ export type MissingDog = {
   photo_url: string | null
   photo_path?: string | null
   reward: number
+  reward_currency?: string | null
   contact_info: string
   latitude: number
   longitude: number

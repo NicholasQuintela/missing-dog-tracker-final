@@ -2,6 +2,7 @@
 
 import { MapPin, Gift, Users, CheckCircle2 } from "lucide-react"
 import type { MissingDog } from "@/lib/types"
+import { formatReward } from "@/lib/currency"
 import { cn } from "@/lib/utils"
 
 function timeAgo(iso: string) {
@@ -62,7 +63,7 @@ export function DogCard({ dog, volunteerCount, selected, onClick }: Props) {
         <div className="mt-auto flex flex-wrap items-center gap-2 pt-1.5">
           {dog.reward > 0 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-              <Gift className="size-3" />${dog.reward} reward
+              <Gift className="size-3" />{formatReward(dog.reward, dog.reward_currency)} reward
             </span>
           )}
           <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-xs font-semibold text-accent">

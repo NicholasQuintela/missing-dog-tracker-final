@@ -17,6 +17,7 @@ import { AccountDialog } from "@/components/account-dialog"
 import { TermsSafetyButton } from "@/components/terms-safety-button"
 import { OnboardingTour } from "@/components/onboarding-tour"
 import { MobileReportSheet } from "@/components/mobile-report-sheet"
+import { UsernameSetupDialog } from "@/components/username-setup-dialog"
 import { createClient } from "@/lib/supabase/client"
 import type { MissingDog, Volunteer, Sighting } from "@/lib/types"
 
@@ -39,6 +40,8 @@ export function FinderApp({ initialDogs, initialCounts, initialSightings }: Prop
   const [locationMessage, setLocationMessage] = useState<string | null>(null)
   const [user, setUser] = useState<{ id:string; email?:string } | null>(null)
   const [adminRole, setAdminRole] = useState<string | null>(null)
+  const [username, setUsername] = useState<string | null>(null)
+  const [needsUsername, setNeedsUsername] = useState(false)
   const [authOpen,setAuthOpen]=useState(false), [accountOpen,setAccountOpen]=useState(false), [reportOpen,setReportOpen]=useState(false), [sightingOpen,setSightingOpen]=useState(false)
   const [detailDog,setDetailDog]=useState<MissingDog|null>(null), [detailSighting,setDetailSighting]=useState<Sighting|null>(null), [volunteerDog,setVolunteerDog]=useState<MissingDog|null>(null), [foundDog,setFoundDog]=useState<MissingDog|null>(null)
   const [sightingDogId,setSightingDogId]=useState<string|null>(null)
@@ -46,7 +49,11 @@ export function FinderApp({ initialDogs, initialCounts, initialSightings }: Prop
   useEffect(()=>{
     async function applyUser(nextUser:{id:string;email?:string}|null){
       setUser(nextUser)
-      if(!nextUser){setAdminRole(null);return}
+      if(!nextUser){setAdminRole(null);setUsername(null);setNeedsUsername(false);return}
+      const profileResult=await supabase.from("profiles").select("username").eq("id",nextUser.id).maybeSingle()
+      const foundUsername=typeof profileResult.data?.username==="string"?profileResult.data.username:null
+      setUsername(foundUsername)
+      setNeedsUsername(!foundUsername)
       const roleResult=await supabase.rpc("get_my_pet_alert_admin_role")
       setAdminRole(typeof roleResult.data==="string"?roleResult.data:null)
     }
@@ -117,6 +124,7 @@ export function FinderApp({ initialDogs, initialCounts, initialSightings }: Prop
     <DogDetailDialog open={!!detailDog} onClose={()=>setDetailDog(null)} dog={detailDog} currentUserId={user?.id} onDeleted={id=>setDogs(v=>v.filter(d=>d.id!==id))} onUpdated={u=>{setDogs(v=>v.map(d=>d.id===u.id?u:d));setDetailDog(u)}} onVolunteer={()=>requireLogin(()=>{setVolunteerDog(detailDog);setDetailDog(null)})} onFound={()=>requireLogin(()=>{setFoundDog(detailDog);setDetailDog(null)})} onSighting={()=>requireLogin(()=>{setSightingDogId(detailDog?.id||null);setSightingOpen(true);setDetailDog(null)})}/>
     <SightingDetailDialog open={!!detailSighting} onClose={()=>setDetailSighting(null)} sighting={detailSighting} currentUserId={user?.id} onDeleted={id=>setSightings(v=>v.filter(s=>s.id!==id))}/>
     <FoundDialog open={!!foundDog} onClose={()=>setFoundDog(null)} dog={foundDog} onFound={(u)=>{setDogs(v=>v.map(d=>d.id===u.id?u:d))}}/>
-    <AuthDialog open={authOpen} onClose={()=>setAuthOpen(false)}/>{user&&<AccountDialog open={accountOpen} onClose={()=>setAccountOpen(false)} userEmail={user.email||""} userId={user.id} onSignOut={()=>setUser(null)}/>}<VolunteerDialog open={!!volunteerDog} onClose={()=>setVolunteerDog(null)} dog={volunteerDog} userId={user?.id||null} userEmail={user?.email} onVolunteered={(chatId)=>{ if(volunteerDog) setCounts(v=>({...v,[volunteerDog.id]:(v[volunteerDog.id]||0)+1})); if(chatId) window.location.href=`/notifications?chat=${chatId}` }}/>
+    {user&&<UsernameSetupDialog open={needsUsername} userId={user.id} onSaved={value=>{setUsername(value);setNeedsUsername(false)}}/>}
+    <AuthDialog open={authOpen} onClose={()=>setAuthOpen(false)}/>{user&&<AccountDialog open={accountOpen} onClose={()=>setAccountOpen(false)} userEmail={user.email||""} username={username||""} userId={user.id} onSignOut={()=>setUser(null)}/>}<VolunteerDialog open={!!volunteerDog} onClose={()=>setVolunteerDog(null)} dog={volunteerDog} userId={user?.id||null} userEmail={user?.email} username={username||undefined} onVolunteered={(chatId)=>{ if(volunteerDog) setCounts(v=>({...v,[volunteerDog.id]:(v[volunteerDog.id]||0)+1})); if(chatId) window.location.href=`/notifications?chat=${chatId}` }}/>
   </div>
 }

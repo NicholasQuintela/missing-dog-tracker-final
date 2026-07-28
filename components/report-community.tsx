@@ -92,9 +92,8 @@ export function ReportCommunity({ dogId, ownerId, currentUserId }: Props) {
     if (!text) return
     setBusy(true)
     setMessage(null)
-    const userResult = await supabase.auth.getUser()
-    const email = userResult.data.user?.email || ""
-    const authorName = email ? email.split("@")[0].slice(0, 40) : "Community member"
+    const profileResult = await supabase.from("profiles").select("username").eq("id", currentUserId).maybeSingle()
+    const authorName = profileResult.data?.username || "Community member"
     const { error } = await supabase.from("report_comments").insert({ dog_id: dogId, user_id: currentUserId, author_name: authorName, body: text })
     setBusy(false)
     if (error) { setMessage(error.message); return }

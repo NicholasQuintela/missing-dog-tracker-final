@@ -6,6 +6,7 @@ import { Modal } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import type { MissingDog, Volunteer } from "@/lib/types"
+import { formatReward } from "@/lib/currency"
 import { ReportAbuseDialog } from "@/components/report-abuse-dialog"
 import { FoundClaimsPanel } from "@/components/found-claims-panel"
 import { EditReportDialog } from "@/components/edit-report-dialog"
@@ -167,7 +168,7 @@ export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound, onSi
           )}
           {dog.reward > 0 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
-              <Gift className="size-4" />${dog.reward} reward
+              <Gift className="size-4" />{formatReward(dog.reward, dog.reward_currency)} reward
             </span>
           )}
           <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 px-3 py-1 text-sm font-semibold text-accent">

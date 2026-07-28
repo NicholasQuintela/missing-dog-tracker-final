@@ -15,6 +15,7 @@ export function AuthDialog({ open, onClose }: Props) {
   const [mode, setMode] = useState<"login" | "signup">("login")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [username, setUsername] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -36,7 +37,7 @@ export function AuthDialog({ open, onClose }: Props) {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
-          options: { captchaToken: captchaToken || undefined },
+          options: { captchaToken: captchaToken || undefined, data: { username: username.trim().toLowerCase() } },
         })
         if (error) throw error
         if (data.session) onClose()
@@ -48,23 +49,30 @@ export function AuthDialog({ open, onClose }: Props) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={mode === "login" ? "Welcome back" : "Create your Pet Alert PH account"} description={mode === "login" ? "Log in to receive updates about dogs you report." : "Your account lets Pet Alert PH notify you about your lost dog."}>
+    <>
+    <Modal open={open && !forgotOpen} onClose={onClose} title={mode === "login" ? "Welcome back" : "Create your Pet Alert PH account"} description={mode === "login" ? "Log in to receive updates about dogs you report." : "Your account lets Pet Alert PH notify you about your lost dog."}>
       <form onSubmit={submit} className="flex flex-col gap-4">
         <Field label="Email" htmlFor="auth-email"><input id="auth-email" type="email" required value={email} onChange={e => setEmail(e.target.value)} className={inputClass} placeholder="you@example.com" /></Field>
+        {mode === "signup" && <Field label="Public username" htmlFor="auth-username" hint="Shown publicly instead of your email."><input id="auth-username" required minLength={3} maxLength={24} pattern="[A-Za-z0-9._]+" value={username} onChange={e => setUsername(e.target.value)} className={inputClass} placeholder="e.g. doghelper.ph" /></Field>}
         <Field label="Password" htmlFor="auth-password"><input id="auth-password" type="password" required minLength={6} value={password} onChange={e => setPassword(e.target.value)} className={inputClass} placeholder="At least 6 characters" /></Field>
+        {mode === "login" && <button
+          type="button"
+          className="-mt-1 self-start text-sm font-semibold text-primary underline underline-offset-4 hover:text-primary/80"
+          onClick={() => setForgotOpen(true)}
+        >
+          Forgot password? Request account deletion
+        </button>}
         <CaptchaWidget onToken={setCaptchaToken} />
         {mode === "signup" && <label className="flex items-start gap-2 text-xs text-muted-foreground"><input type="checkbox" className="mt-0.5" checked={accepted} onChange={e=>setAccepted(e.target.checked)} /><span>I agree to the <a href="/terms" target="_blank" className="font-semibold text-primary underline">Terms of Use</a> and acknowledge the <a href="/privacy" target="_blank" className="font-semibold text-primary underline">Privacy Notice</a>.</span></label>}
         {error && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
         {message && <p className="rounded-lg bg-accent/10 px-3 py-2 text-sm text-foreground">{message}</p>}
         <Button type="submit" size="lg" disabled={submitting}>{submitting ? <><Loader2 className="size-4 animate-spin" /> Please wait…</> : mode === "login" ? <><LogIn className="size-4" /> Log in</> : <><UserPlus className="size-4" /> Create account</>}</Button>
-        {mode === "login" && <button type="button" className="text-sm font-semibold text-primary underline-offset-4 hover:underline" onClick={() => setForgotOpen(true)}>
-          Forgot password?
-        </button>}
         <button type="button" className="text-sm font-semibold text-primary underline-offset-4 hover:underline" onClick={() => { setMode(mode === "login" ? "signup" : "login"); setError(null); setMessage(null) }}>
           {mode === "login" ? "Need an account? Sign up" : "Already have an account? Log in"}
         </button>
       </form>
-      <AccountDeletionRequestDialog open={forgotOpen} onClose={() => setForgotOpen(false)} />
     </Modal>
+    <AccountDeletionRequestDialog open={forgotOpen} onClose={() => setForgotOpen(false)} />
+    </>
   )
 }
