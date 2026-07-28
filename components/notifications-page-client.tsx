@@ -13,14 +13,14 @@ const tabs = ["all", "messages", "volunteers", "reports", "updates"] as const
 type Tab = typeof tabs[number]
 
 function category(type: string): Tab {
-  if (type === "message") return "messages"
+  if (type === "message" || type === "comment") return "messages"
   if (type === "volunteer") return "volunteers"
   if (type === "found" || type === "report") return "reports"
   return "updates"
 }
 
 function Icon({ type }: { type: string }) {
-  if (type === "message") return <MessageCircle className="size-5" />
+  if (type === "message" || type === "comment") return <MessageCircle className="size-5" />
   if (type === "volunteer") return <Users className="size-5" />
   if (type === "found" || type === "report") return <PawPrint className="size-5" />
   return <Bell className="size-5" />
@@ -61,6 +61,10 @@ export function NotificationsPageClient() {
       const now = new Date().toISOString()
       await supabase.from("notifications").update({ read_at: now }).eq("id", item.id)
       setItems(prev => prev.map(n => n.id === item.id ? { ...n, read_at: now } : n))
+    }
+    if (item.type === "comment" && item.dog_id) {
+      window.location.href = `/?report=${item.dog_id}#comments`
+      return
     }
     if (item.found_claim_id) {
       setClaimId(item.found_claim_id)

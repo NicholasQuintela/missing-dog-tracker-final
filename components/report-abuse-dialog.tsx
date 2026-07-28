@@ -17,7 +17,7 @@ const categories = [
 type Props = {
   open: boolean
   onClose: () => void
-  targetType: "missing_dog" | "sighting" | "message" | "user"
+  targetType: "missing_dog" | "sighting" | "message" | "comment" | "user"
   targetId: string
 }
 

@@ -9,6 +9,7 @@ import type { MissingDog, Volunteer } from "@/lib/types"
 import { ReportAbuseDialog } from "@/components/report-abuse-dialog"
 import { FoundClaimsPanel } from "@/components/found-claims-panel"
 import { EditReportDialog } from "@/components/edit-report-dialog"
+import { ReportCommunity } from "@/components/report-community"
 
 type Props = {
   open: boolean
@@ -188,6 +189,8 @@ export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound, onSi
         )}
 
         {currentUserId && currentUserId !== dog.owner_id && <Button variant="ghost" onClick={()=>setAbuseOpen(true)} className="text-destructive"><Flag className="size-4"/>Report abuse</Button>}
+
+        <ReportCommunity dogId={dog.id} ownerId={dog.owner_id} currentUserId={currentUserId} />
 
         {volunteers.length > 0 && (
           <div className="flex flex-col gap-2">
