@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { ImagePlus, Loader2 } from "lucide-react"
 import { Modal, Field, inputClass } from "@/components/modal"
 import { Button } from "@/components/ui/button"
@@ -25,7 +25,7 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
-  const [point, setPoint] = useState<[number, number]>(defaultCenter)
+  const [point, setPoint] = useState<[number, number] | null>(null)
   const [address, setAddress] = useState<AddressFields>({ region: "", city: "", barangay: "", street: "" })
 
   const [name, setName] = useState("")
@@ -47,9 +47,17 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
     setPhotoFile(null)
     setPhotoPreview(null)
     setError(null)
-    setPoint(defaultCenter)
+    setPoint(null)
     setAddress({ region: "", city: "", barangay: "", street: "" })
   }
+
+
+  useEffect(() => {
+    if (!open) return
+    reset()
+  // Reset every time the form opens so a previous report pin can never be reused.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -64,6 +72,11 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
 
     if (!name.trim() || !contact.trim()) {
       setError("Please provide the dog's name and a contact method.")
+      return
+    }
+
+    if (!point) {
+      setError("Please select your pet's last known location before submitting.")
       return
     }
 
@@ -132,7 +145,7 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={() => { reset(); onClose() }}
       title="Report a missing dog"
       description="Share the details so nearby volunteers can help bring them home."
     >
@@ -199,6 +212,7 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
 
         <LocationPicker
           point={point}
+          defaultCenter={defaultCenter}
           onPointChange={setPoint}
           address={address}
           onAddressChange={setAddress}
@@ -229,7 +243,7 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
         )}
 
         <div className="flex gap-3">
-          <Button type="button" variant="outline" size="lg" className="flex-1" onClick={onClose} disabled={submitting}>
+          <Button type="button" variant="outline" size="lg" className="flex-1" onClick={() => { reset(); onClose() }} disabled={submitting}>
             Cancel
           </Button>
           <Button type="submit" size="lg" className="flex-1" disabled={submitting}>

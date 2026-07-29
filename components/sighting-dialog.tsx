@@ -62,7 +62,7 @@ export function SightingDialog({
   const [description, setDescription] = useState("")
   const [contact, setContact] = useState("")
   const [seenAt, setSeenAt] = useState(localDateTimeValue)
-  const [point, setPoint] = useState<[number, number]>(defaultCenter)
+  const [point, setPoint] = useState<[number, number] | null>(null)
   const [address, setAddress] = useState<AddressFields>(EMPTY_ADDRESS)
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [mapInstanceKey, setMapInstanceKey] = useState(0)
@@ -75,7 +75,7 @@ export function SightingDialog({
     setDescription("")
     setContact("")
     setSeenAt(localDateTimeValue())
-    setPoint(defaultCenter)
+    setPoint(null)
     setAddress(EMPTY_ADDRESS)
     setPhotoFile(null)
     setCaptchaToken(null)
@@ -131,6 +131,7 @@ export function SightingDialog({
     try {
       if (!title.trim()) throw new Error("Please add a short sighting title.")
       if (!seenAt) throw new Error("Please select when the dog was seen.")
+      if (!point) throw new Error("Please select where the dog was seen before submitting.")
       if (!captchaToken) throw new Error("Please complete the CAPTCHA.")
 
       const captchaResponse = await fetch("/api/verify-captcha", {
@@ -274,6 +275,7 @@ export function SightingDialog({
 
         <LocationPicker
           point={point}
+          defaultCenter={defaultCenter}
           onPointChange={setPoint}
           address={address}
           onAddressChange={setAddress}

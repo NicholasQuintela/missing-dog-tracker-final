@@ -16,7 +16,8 @@ export type AddressFields = {
 }
 
 type Props = {
-  point: [number, number]
+  point: [number, number] | null
+  defaultCenter: [number, number]
   onPointChange: (point: [number, number]) => void
   address: AddressFields
   onAddressChange: (address: AddressFields) => void
@@ -35,6 +36,7 @@ function geolocationErrorMessage(error: GeolocationPositionError) {
 
 export function LocationPicker({
   point,
+  defaultCenter,
   onPointChange,
   address,
   onAddressChange,
@@ -49,7 +51,7 @@ export function LocationPicker({
   const [followLive, setFollowLive] = useState(true)
   const [privatePosition, setPrivatePosition] = useState<[number, number] | null>(null)
   const [accuracy, setAccuracy] = useState<number | null>(null)
-  const [mapCenter, setMapCenter] = useState<[number, number]>(point)
+  const [mapCenter, setMapCenter] = useState<[number, number]>(point ?? defaultCenter)
   const [recenterTrigger, setRecenterTrigger] = useState(0)
   const [message, setMessage] = useState<string | null>(null)
   const watchId = useRef<number | null>(null)
@@ -59,6 +61,20 @@ export function LocationPicker({
       if (watchId.current !== null && navigator.geolocation) navigator.geolocation.clearWatch(watchId.current)
     }
   }, [])
+
+  useEffect(() => {
+    if (watchId.current !== null && navigator.geolocation) navigator.geolocation.clearWatch(watchId.current)
+    watchId.current = null
+    setLive(false)
+    setFollowLive(true)
+    setPrivatePosition(null)
+    setAccuracy(null)
+    setMapCenter(defaultCenter)
+    setRecenterTrigger((value) => value + 1)
+    setMessage(null)
+    setGeoLoading(false)
+    setSearching(false)
+  }, [mapKey, defaultCenter])
 
   function updateAddress(field: keyof AddressFields, value: string) {
     onAddressChange({ ...address, [field]: value })
@@ -108,33 +124,26 @@ export function LocationPicker({
     }
   }
 
-  function requestOneTimeLocation(highAccuracy = true) {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        applyPrivatePosition(position, true)
-        setGeoLoading(false)
-      },
-      (error) => {
-        if (highAccuracy && error.code !== error.PERMISSION_DENIED) {
-          setMessage("High-accuracy GPS was unavailable. Trying a faster location method…")
-          requestOneTimeLocation(false)
-          return
-        }
-        setMessage(geolocationErrorMessage(error))
-        setGeoLoading(false)
-      },
-      { enableHighAccuracy: highAccuracy, timeout: highAccuracy ? 12000 : 20000, maximumAge: highAccuracy ? 0 : 60000 },
-    )
-  }
 
   function useCurrentLocation() {
     if (!navigator.geolocation) {
       setMessage("Location access is not supported by this browser.")
       return
     }
+    const useAsReportPin = window.confirm("Use your current location as the report location? Choose Cancel if you only want to view where you are on the map.")
     setGeoLoading(true)
     setMessage("Getting your location…")
-    requestOneTimeLocation(true)
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        applyPrivatePosition(position, useAsReportPin)
+        setGeoLoading(false)
+      },
+      (error) => {
+        setMessage(geolocationErrorMessage(error))
+        setGeoLoading(false)
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    )
   }
 
   function startLiveLocation() {
@@ -252,7 +261,7 @@ export function LocationPicker({
         </div>
 
         <p className="flex items-center gap-1 text-xs text-muted-foreground">
-          <MapPin className="size-3" /> Selected report pin: {point[0].toFixed(5)}, {point[1].toFixed(5)}
+          <MapPin className="size-3" /> {point ? `Selected report pin: ${point[0].toFixed(5)}, ${point[1].toFixed(5)}` : "No report pin selected yet."}
         </p>
         {message && <p className="text-xs text-muted-foreground" role="status">{message}</p>}
       </div>
