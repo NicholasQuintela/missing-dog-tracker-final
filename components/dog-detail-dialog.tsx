@@ -12,6 +12,7 @@ import { FoundClaimsPanel } from "@/components/found-claims-panel"
 import { EditReportDialog } from "@/components/edit-report-dialog"
 import { ReportCommunity } from "@/components/report-community"
 import { removeStoredPhoto } from "@/lib/storage-photo"
+import { FullscreenPhotoViewer } from "@/components/fullscreen-photo-viewer"
 
 type Props = {
   open: boolean
@@ -35,6 +36,7 @@ export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound, onSi
   const [volunteerCount, setVolunteerCount] = useState(0)
   const [abuseOpen, setAbuseOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [photoOpen, setPhotoOpen] = useState(false)
   const historyMarkerRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -134,8 +136,15 @@ export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound, onSi
       <div className="flex flex-col gap-5">
         <div className="overflow-hidden rounded-2xl bg-muted">
           {dog.photo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={dog.photo_url || "/placeholder.svg"} alt={`Photo of ${dog.name}`} className="max-h-64 w-full object-cover" />
+            <button
+              type="button"
+              className="block w-full cursor-zoom-in"
+              onClick={() => setPhotoOpen(true)}
+              aria-label={`View full photo of ${dog.name}`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={dog.photo_url || "/placeholder.svg"} alt={`Photo of ${dog.name}`} className="h-auto w-full object-contain" />
+            </button>
           ) : (
             <div className="flex h-40 items-center justify-center text-muted-foreground">
               <MapPin className="size-8" />
@@ -250,6 +259,14 @@ export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound, onSi
           </div>
         )}
       </div>
+      {dog.photo_url && (
+        <FullscreenPhotoViewer
+          open={photoOpen}
+          src={dog.photo_url}
+          alt={`Photo of ${dog.name}`}
+          onClose={() => setPhotoOpen(false)}
+        />
+      )}
       <ReportAbuseDialog open={abuseOpen} onClose={()=>setAbuseOpen(false)} targetType="missing_dog" targetId={dog.id}/>
       <EditReportDialog open={editOpen} onClose={()=>setEditOpen(false)} dog={dog} onUpdated={onUpdated}/>
     </Modal>

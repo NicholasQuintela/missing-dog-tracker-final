@@ -16,6 +16,7 @@ import { NotificationBell } from "@/components/notifications"
 import { AccountDialog } from "@/components/account-dialog"
 import { TermsSafetyButton } from "@/components/terms-safety-button"
 import { OnboardingTour } from "@/components/onboarding-tour"
+import { WhatsNewOverlay } from "@/components/whats-new-overlay"
 import { MobileReportSheet } from "@/components/mobile-report-sheet"
 import { UsernameSetupDialog } from "@/components/username-setup-dialog"
 import { createClient } from "@/lib/supabase/client"
@@ -118,6 +119,7 @@ export function FinderApp({ initialDogs, initialCounts, initialSightings }: Prop
       <MobileReportSheet><div className="flex h-full min-h-0 flex-col"><div className="shrink-0 border-b px-4 pb-3"><div className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search name, breed, area…" className="h-11 w-full rounded-2xl border bg-card pl-10 pr-3 text-sm outline-none"/></div><div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground"><span><span className="inline-block size-2 rounded-full bg-orange-600"/> Missing reports</span><span><span className="inline-block size-2 rounded-full bg-green-600"/> Sightings</span></div></div><div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4 pb-24">{filtered.map(d=><DogCard key={d.id} dog={d} volunteerCount={counts[d.id]||0} selected={d.id===selectedId} onClick={()=>{focusDogOnly(d);setDetailDog(d)}}/>)}{filtered.length===0&&<div className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">No reports match your search.</div>}</div></div></MobileReportSheet>
     </div>
     <OnboardingTour />
+    <WhatsNewOverlay />
     <TermsSafetyButton />
     <ReportDialog open={reportOpen} onClose={()=>setReportOpen(false)} defaultCenter={center} onReported={d=>{setDogs(v=>[d,...v]);focus(d.latitude,d.longitude)}}/>
     <SightingDialog open={sightingOpen} onClose={()=>setSightingOpen(false)} defaultCenter={center} dogs={dogs} defaultDogId={sightingDogId} onCreated={(s,chatId)=>{setSightings(v=>[s,...v]);focus(s.latitude,s.longitude);if(chatId) window.location.href=`/notifications?chat=${chatId}`}}/>
