@@ -71,7 +71,7 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
     setError(null)
 
     if (!name.trim() || !contact.trim()) {
-      setError("Please provide the dog's name and a contact method.")
+      setError("Please provide the pet's name and a contact method.")
       return
     }
 
@@ -87,7 +87,7 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
       if (!captchaResponse.ok) throw new Error("CAPTCHA verification failed. Please try again.")
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        setError("Please log in before posting a missing-dog report.")
+        setError("Please log in before posting a missing-pet report.")
         return
       }
       if (!confirmed) throw new Error("Please confirm that the report is accurate and lawful.")
@@ -146,7 +146,7 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
     <Modal
       open={open}
       onClose={() => { reset(); onClose() }}
-      title="Report a missing dog"
+      title="Report a missing pet"
       description="Share the details so nearby volunteers can help bring them home."
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
@@ -157,7 +157,7 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
           >
             {photoPreview ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={photoPreview || "/placeholder.svg"} alt="Preview of the dog" className="h-full w-full object-cover" />
+              <img src={photoPreview || "/placeholder.svg"} alt="Preview of the pet" className="h-full w-full object-cover" />
             ) : (
               <ImagePlus className="size-7" />
             )}
@@ -170,7 +170,7 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Dog's name" htmlFor="name">
+          <Field label="Pet's name" htmlFor="name">
             <input
               id="name"
               value={name}
@@ -252,7 +252,7 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
                 <Loader2 className="size-4 animate-spin" /> Posting…
               </>
             ) : (
-              "Post missing dog"
+              "Post missing pet"
             )}
           </Button>
         </div>

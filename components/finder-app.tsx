@@ -105,12 +105,12 @@ export function FinderApp({ initialDogs, initialCounts, initialSightings }: Prop
 
   return <div className="flex h-dvh flex-col overflow-hidden">
     <header className="relative z-40 flex items-center justify-between gap-3 border-b bg-card/90 px-4 py-3 backdrop-blur sm:px-6">
-      <div className="flex items-center gap-2.5"><div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground"><PawPrint className="size-5"/></div><div><h1 className="font-serif text-lg font-extrabold">Pet Alert PH</h1><p className="hidden text-xs text-muted-foreground sm:block">Bringing lost dogs home, together</p></div></div>
+      <div className="flex items-center gap-2.5"><div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground"><PawPrint className="size-5"/></div><div><h1 className="font-serif text-lg font-extrabold">Pet Alert PH</h1><p className="hidden text-xs text-muted-foreground sm:block">Bringing lost pets home, together</p></div></div>
       <div className="flex items-center gap-2"><span className="hidden text-xs text-muted-foreground lg:block">{dogs.length} reports · {sightings.length} sightings · {totalHelpers} helping</span>
         {adminRole&&<Button variant="outline" onClick={()=>window.open("/admin/moderation","_blank","noopener,noreferrer")}><ShieldCheck className="size-4"/><span className="hidden md:inline">Moderation</span></Button>} {user&&<NotificationBell userId={user.id}/>} {user?<Button variant="outline" size="icon" className="rounded-full" onClick={()=>setAccountOpen(true)}><User className="size-4"/></Button>:<Button variant="outline" onClick={()=>setAuthOpen(true)}>Log in</Button>}
         <Button data-tour="report-sighting" type="button" variant="outline" onClick={() => requireLogin(() => { setSightingDogId(null); setSightingOpen(true) })}><Eye className="size-4"/><span className="hidden sm:inline">Report sighting</span></Button>
         <Button data-tour="report-missing" type="button" onClick={()=>requireLogin(()=>setReportOpen(true))} className="shrink min-w-0 px-3 sm:px-4">
-<Plus className="size-4 shrink-0"/><span className="hidden sm:inline truncate">Report missing dog</span><span className="sm:hidden truncate">Report</span></Button>
+<Plus className="size-4 shrink-0"/><span className="hidden sm:inline truncate">Report missing pet</span><span className="sm:hidden truncate">Report</span></Button>
       </div>
     </header>
     <div className="relative min-h-0 flex-1 overflow-hidden md:flex">

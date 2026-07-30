@@ -31,13 +31,13 @@ export function FoundDialog({ open, onClose, dog, onFound }: Props) {
     e.preventDefault()
     if (!dog) return
     setError(null)
-    if (!name.trim()) { setError("Please tell us who found the dog."); return }
-    if (!photoFile) { setError("Please upload a photo of the dog you found as proof."); return }
+    if (!name.trim()) { setError("Please tell us who found the pet."); return }
+    if (!photoFile) { setError("Please upload a photo of the pet you found as proof."); return }
 
     setSubmitting(true)
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser()
-      if (authError || !user) throw new Error("Please log in again before reporting a found dog.")
+      if (authError || !user) throw new Error("Please log in again before reporting a found pet.")
       if (dog.owner_id === user.id) throw new Error("The report owner cannot use the finder action on their own report.")
       if (photoFile.size > 2 * 1024 * 1024) throw new Error("Please choose an image smaller than 2 MB.")
 
@@ -69,7 +69,7 @@ export function FoundDialog({ open, onClose, dog, onFound }: Props) {
 
   return <Modal open={open} onClose={onClose} title={dog ? `Possible match for ${dog.name}` : "Report a possible match"} description="The owner will review your proof and confirm whether this is their pet.">
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-      <div className="flex items-center gap-4"><label htmlFor="found-photo" className="group relative flex size-24 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-border bg-muted text-muted-foreground transition-colors hover:border-ring hover:text-foreground">{photoPreview ? <img src={photoPreview} alt="Photo of the found dog" className="h-full w-full object-cover" /> : <ImagePlus className="size-7" />}<input id="found-photo" type="file" accept="image/*" onChange={handlePhoto} className="sr-only" /></label><div className="text-sm text-muted-foreground"><p className="font-semibold text-foreground">Proof photo (required)</p><p>A recent picture helps the owner verify the report.</p></div></div>
+      <div className="flex items-center gap-4"><label htmlFor="found-photo" className="group relative flex size-24 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-border bg-muted text-muted-foreground transition-colors hover:border-ring hover:text-foreground">{photoPreview ? <img src={photoPreview} alt="Photo of the found pet" className="h-full w-full object-cover" /> : <ImagePlus className="size-7" />}<input id="found-photo" type="file" accept="image/*" onChange={handlePhoto} className="sr-only" /></label><div className="text-sm text-muted-foreground"><p className="font-semibold text-foreground">Proof photo (required)</p><p>A recent picture helps the owner verify the report.</p></div></div>
       <Field label="Your name" htmlFor="f-name"><input id="f-name" value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Jordan" className={inputClass}/></Field>
       <Field label="Where & how you found them (optional)" htmlFor="f-note"><textarea id="f-note" value={note} onChange={e=>setNote(e.target.value)} placeholder="Found near the market; currently safe with me." rows={3} className={inputClass+" h-auto py-2 resize-none"}/></Field>
       {error && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}

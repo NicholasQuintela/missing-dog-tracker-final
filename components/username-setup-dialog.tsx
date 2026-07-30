@@ -29,7 +29,7 @@ export function UsernameSetupDialog({ open, userId, initialUsername = "", onSave
     <form onSubmit={save} className="space-y-4">
       <div className="rounded-xl bg-primary/10 p-3 text-sm"><UserRound className="mr-2 inline size-4" />Your email remains private. Reports and chats still belong to your secure account ID.</div>
       <Field label="Username" htmlFor="username" hint="3–24 characters. Letters, numbers, periods and underscores only.">
-        <input id="username" autoFocus autoCapitalize="none" autoCorrect="off" className={inputClass} value={username} onChange={e => setUsername(e.target.value)} placeholder="e.g. doghelper.ph" maxLength={24} />
+        <input id="username" autoFocus autoCapitalize="none" autoCorrect="off" className={inputClass} value={username} onChange={e => setUsername(e.target.value)} placeholder="e.g. pethelper.ph" maxLength={24} />
       </Field>
       {error && <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
       <Button className="w-full" size="lg" type="submit" disabled={busy}>{busy ? <><Loader2 className="size-4 animate-spin" />Saving…</> : "Save username"}</Button>

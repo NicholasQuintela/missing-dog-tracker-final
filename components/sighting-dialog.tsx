@@ -130,8 +130,8 @@ export function SightingDialog({
 
     try {
       if (!title.trim()) throw new Error("Please add a short sighting title.")
-      if (!seenAt) throw new Error("Please select when the dog was seen.")
-      if (!point) throw new Error("Please select where the dog was seen before submitting.")
+      if (!seenAt) throw new Error("Please select when the pet was seen.")
+      if (!point) throw new Error("Please select where the pet was seen before submitting.")
       if (!captchaToken) throw new Error("Please complete the CAPTCHA.")
 
       const captchaResponse = await fetch("/api/verify-captcha", {
@@ -227,10 +227,10 @@ export function SightingDialog({
       open={open}
       onClose={submitting ? () => undefined : onClose}
       title="Report a sighting"
-      description="Add a green map pin where you saw a dog that may be missing."
+      description="Add a green map pin where you saw a pet that may be missing."
     >
       <form onSubmit={submit} className="flex flex-col gap-4" noValidate>
-        <Field label="Related missing-dog report (optional)">
+        <Field label="Related missing-pet report (optional)">
           <select className={inputClass} value={dogId} onChange={(event) => setDogId(event.target.value)}>
             <option value="">Not sure / general sighting</option>
             {dogs.map((dog) => (
@@ -246,7 +246,7 @@ export function SightingDialog({
             className={inputClass}
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            placeholder="Brown dog seen near the market"
+            placeholder="Brown pet seen near the market"
             maxLength={100}
             required
           />

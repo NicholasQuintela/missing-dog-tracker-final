@@ -128,7 +128,7 @@ begin
   select owner_id, name into v_owner, v_name from public.missing_dogs where id=new.dog_id;
   if v_owner is not null and v_owner <> new.reporter_id then
     perform public.create_pawfinder_activity(v_owner,new.reporter_id,new.dog_id,null,'sighting',
-      'New sighting reported', new.title || ' — possible sighting of ' || coalesce(v_name,'your dog'));
+      'New sighting reported', new.title || ' — possible sighting of ' || coalesce(v_name,'your pet'));
   end if;
   return new;
 end $$;

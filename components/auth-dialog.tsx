@@ -52,10 +52,10 @@ export function AuthDialog({ open, onClose }: Props) {
 
   return (
     <>
-    <Modal open={open && !forgotOpen} onClose={onClose} title={mode === "login" ? "Welcome back" : "Create your Pet Alert PH account"} description={mode === "login" ? "Log in to receive updates about dogs you report." : "Your account lets Pet Alert PH notify you about your lost dog."}>
+    <Modal open={open && !forgotOpen} onClose={onClose} title={mode === "login" ? "Welcome back" : "Create your Pet Alert PH account"} description={mode === "login" ? "Log in to receive updates about pets you report." : "Your account lets Pet Alert PH notify you about your lost pet."}>
       <form onSubmit={submit} className="flex flex-col gap-4">
         <Field label="Email" htmlFor="auth-email"><input id="auth-email" type="email" required value={email} onChange={e => setEmail(e.target.value)} className={inputClass} placeholder="you@example.com" /></Field>
-        {mode === "signup" && <Field label="Public username" htmlFor="auth-username" hint="Shown publicly instead of your email."><input id="auth-username" required minLength={3} maxLength={24} pattern="[A-Za-z0-9._]+" value={username} onChange={e => setUsername(e.target.value)} className={inputClass} placeholder="e.g. doghelper.ph" /></Field>}
+        {mode === "signup" && <Field label="Public username" htmlFor="auth-username" hint="Shown publicly instead of your email."><input id="auth-username" required minLength={3} maxLength={24} pattern="[A-Za-z0-9._]+" value={username} onChange={e => setUsername(e.target.value)} className={inputClass} placeholder="e.g. pethelper.ph" /></Field>}
         <Field label="Password" htmlFor="auth-password"><input id="auth-password" type="password" required minLength={6} autoComplete={mode === "login" ? "current-password" : "new-password"} value={password} onChange={e => setPassword(e.target.value)} className={inputClass} placeholder="At least 6 characters" /></Field>
         {mode === "signup" && (
           <Field

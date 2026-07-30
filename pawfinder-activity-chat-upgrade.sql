@@ -177,7 +177,7 @@ begin
   perform public.create_pawfinder_activity(
     v_owner, new.user_id, new.dog_id, v_conversation, 'volunteer',
     'Someone volunteered on your report',
-    coalesce(new.volunteer_name, 'A verified user') || ' volunteered to help find ' || coalesce(v_dog_name, 'your dog') || '. Tap to open your private chat.'
+    coalesce(new.volunteer_name, 'A verified user') || ' volunteered to help find ' || coalesce(v_dog_name, 'your pet') || '. Tap to open your private chat.'
   );
 
   return new;
@@ -221,7 +221,7 @@ begin
 
   perform public.create_pawfinder_activity(
     v_recipient, new.sender_id, v_dog, new.conversation_id, 'message',
-    'New message about ' || coalesce(v_dog_name, 'a dog'),
+    'New message about ' || coalesce(v_dog_name, 'a pet'),
     left(new.body, 120)
   );
   return new;
@@ -244,8 +244,8 @@ begin
   if new.status = 'found' and old.status is distinct from 'found' then
     perform public.create_pawfinder_activity(
       new.owner_id, auth.uid(), new.id, null, 'found',
-      'Your dog may have been found!',
-      coalesce(new.name, 'Your dog') || ' was marked found by ' || coalesce(new.found_by, 'a verified user') || '.'
+      'Your pet may have been found!',
+      coalesce(new.name, 'Your pet') || ' was marked found by ' || coalesce(new.found_by, 'a verified user') || '.'
     );
   end if;
   return new;

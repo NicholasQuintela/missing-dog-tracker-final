@@ -81,9 +81,9 @@ begin
   select owner_id,name into v_owner,v_name from public.missing_dogs where id=new.dog_id;
   v_chat := public.ensure_pawfinder_conversation(new.dog_id,new.user_id,'volunteer',new.id);
   perform public.create_pawfinder_activity(v_owner,new.user_id,new.dog_id,v_chat,'volunteer',
-    'Someone volunteered on your report',coalesce(new.volunteer_name,'A verified user')||' volunteered to help find '||coalesce(v_name,'your dog')||'. Tap to chat.');
+    'Someone volunteered on your report',coalesce(new.volunteer_name,'A verified user')||' volunteered to help find '||coalesce(v_name,'your pet')||'. Tap to chat.');
   perform public.create_pawfinder_activity(new.user_id,v_owner,new.dog_id,v_chat,'volunteer',
-    'You joined the search for '||coalesce(v_name,'a dog'),'Your private chat with the owner is ready.');
+    'You joined the search for '||coalesce(v_name,'a pet'),'Your private chat with the owner is ready.');
   return new;
 end $$;
 drop trigger if exists pawfinder_after_volunteer_trigger on public.volunteers;
@@ -100,9 +100,9 @@ begin
   if v_owner is null or v_owner=new.reporter_id then return new; end if;
   v_chat := public.ensure_pawfinder_conversation(new.dog_id,new.reporter_id,'sighting',new.id);
   perform public.create_pawfinder_activity(v_owner,new.reporter_id,new.dog_id,v_chat,'sighting',
-    'New sighting reported',new.title||' — possible sighting of '||coalesce(v_name,'your dog')||'. Tap to chat with the reporter.');
+    'New sighting reported',new.title||' — possible sighting of '||coalesce(v_name,'your pet')||'. Tap to chat with the reporter.');
   perform public.create_pawfinder_activity(new.reporter_id,v_owner,new.dog_id,v_chat,'sighting',
-    'Sighting sent to the owner','Your private chat about '||coalesce(v_name,'the dog')||' is ready.');
+    'Sighting sent to the owner','Your private chat about '||coalesce(v_name,'the pet')||' is ready.');
   return new;
 end $$;
 drop trigger if exists notify_owner_about_sighting_trigger on public.sightings;
@@ -118,9 +118,9 @@ begin
     if new.owner_id is not null and new.owner_id<>new.found_by_user_id then
       v_chat := public.ensure_pawfinder_conversation(new.id,new.found_by_user_id,'found',new.id);
       perform public.create_pawfinder_activity(new.owner_id,new.found_by_user_id,new.id,v_chat,'found',
-        'Your dog may have been found!',coalesce(new.name,'Your dog')||' was marked found by '||coalesce(new.found_by,'a verified user')||'. Tap to chat.');
+        'Your pet may have been found!',coalesce(new.name,'Your pet')||' was marked found by '||coalesce(new.found_by,'a verified user')||'. Tap to chat.');
       perform public.create_pawfinder_activity(new.found_by_user_id,new.owner_id,new.id,v_chat,'found',
-        'You reported '||coalesce(new.name,'a dog')||' found','Your private chat with the owner is ready.');
+        'You reported '||coalesce(new.name,'a pet')||' found','Your private chat with the owner is ready.');
     end if;
   end if;
   return new;
