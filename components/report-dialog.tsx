@@ -9,6 +9,7 @@ import { CaptchaWidget } from "@/components/captcha-widget"
 import { LocationPicker, type AddressFields } from "@/components/location-picker"
 import type { MissingDog } from "@/lib/types"
 import { REWARD_CURRENCIES } from "@/lib/currency"
+import { optimizeImageForUpload } from "@/lib/image-optimization"
 
 
 type Props = {
@@ -94,13 +95,12 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
       let photo_url: string | null = null
       let photo_path: string | null = null
       if (photoFile) {
-        if (photoFile.size > 2 * 1024 * 1024) throw new Error("Please choose an image smaller than 2 MB.")
-        const ext = photoFile.name.split(".").pop() || "jpg"
-        const path = `reports/${user.id}/${crypto.randomUUID()}.${ext}`
+        const optimized = await optimizeImageForUpload(photoFile)
+        const path = `reports/${user.id}/${crypto.randomUUID()}.webp`
         photo_path = path
         const { error: upErr } = await supabase.storage
           .from("dog-photos")
-          .upload(path, photoFile, { cacheControl: "3600", upsert: false })
+          .upload(path, optimized.file, { cacheControl: "31536000", contentType: "image/webp", upsert: false })
         if (upErr) throw upErr
         const { data } = supabase.storage.from("dog-photos").getPublicUrl(path)
         photo_url = data.publicUrl

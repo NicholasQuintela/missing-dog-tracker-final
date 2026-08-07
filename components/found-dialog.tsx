@@ -7,6 +7,7 @@ import { Modal, Field, inputClass } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import type { MissingDog } from "@/lib/types"
+import { optimizeImageForUpload } from "@/lib/image-optimization"
 
 type Props = {
   open: boolean
@@ -39,11 +40,9 @@ export function FoundDialog({ open, onClose, dog, onFound }: Props) {
       const { data: { user }, error: authError } = await supabase.auth.getUser()
       if (authError || !user) throw new Error("Please log in again before reporting a found pet.")
       if (dog.owner_id === user.id) throw new Error("The report owner cannot use the finder action on their own report.")
-      if (photoFile.size > 2 * 1024 * 1024) throw new Error("Please choose an image smaller than 2 MB.")
-
-      const ext = photoFile.name.split(".").pop() || "jpg"
-      const path = `found/${user.id}/${crypto.randomUUID()}.${ext}`
-      const { error: upErr } = await supabase.storage.from("dog-photos").upload(path, photoFile, { cacheControl: "3600", upsert: false })
+      const optimized = await optimizeImageForUpload(photoFile)
+      const path = `found/${user.id}/${crypto.randomUUID()}.webp`
+      const { error: upErr } = await supabase.storage.from("dog-photos").upload(path, optimized.file, { cacheControl: "31536000", contentType: "image/webp", upsert: false })
       if (upErr) throw upErr
       const { data: pub } = supabase.storage.from("dog-photos").getPublicUrl(path)
 

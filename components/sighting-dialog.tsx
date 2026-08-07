@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client"
 import { CaptchaWidget } from "@/components/captcha-widget"
 import { LocationPicker, type AddressFields } from "@/components/location-picker"
 import type { MissingDog, Sighting } from "@/lib/types"
+import { optimizeImageForUpload } from "@/lib/image-optimization"
 
 type Props = {
   open: boolean
@@ -152,16 +153,14 @@ export function SightingDialog({
 
       if (photoFile) {
         if (!isSupportedImage(photoFile)) throw new Error("The selected photo format is not supported.")
-        if (photoFile.size > MAX_PHOTO_BYTES) throw new Error("Please choose a photo smaller than 5 MB.")
-
-        const extension = fileExtension(photoFile.name) || "jpg"
-        uploadedPhotoPath = `sightings/${user.id}/${crypto.randomUUID()}.${extension}`
+        const optimized = await optimizeImageForUpload(photoFile)
+        uploadedPhotoPath = `sightings/${user.id}/${crypto.randomUUID()}.webp`
 
         const { error: uploadError } = await supabase.storage
           .from("dog-photos")
-          .upload(uploadedPhotoPath, photoFile, {
-            cacheControl: "3600",
-            contentType: photoFile.type || undefined,
+          .upload(uploadedPhotoPath, optimized.file, {
+            cacheControl: "31536000",
+            contentType: "image/webp",
             upsert: false,
           })
 

@@ -37,6 +37,8 @@ export function DogCard({ dog, volunteerCount, selected, onClick }: Props) {
         {dog.photo_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
+            loading="lazy"
+            decoding="async"
             src={dog.photo_url || "/placeholder.svg"}
             alt={`Photo of ${dog.name}`}
             className={cn("h-full w-full object-cover", isFound && "opacity-70")}

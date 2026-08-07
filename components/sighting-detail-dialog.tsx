@@ -27,7 +27,7 @@ export function SightingDetailDialog({open,onClose,sighting,currentUserId,onDele
     onDeleted(sighting.id);onClose()
   }
   return <Modal open={open} onClose={onClose} title={sighting.title} description="Community sighting · green map pin"><div className="flex flex-col gap-4">
-    {sighting.photo_url && <button type="button" className="block w-full cursor-zoom-in overflow-hidden rounded-2xl bg-muted" onClick={()=>setPhotoOpen(true)} aria-label={`View full photo for ${sighting.title}`}><img src={sighting.photo_url} alt={sighting.title} className="h-auto w-full object-contain" /></button>}
+    {sighting.photo_url && <button type="button" className="block w-full cursor-zoom-in overflow-hidden rounded-2xl bg-muted" onClick={()=>setPhotoOpen(true)} aria-label={`View full photo for ${sighting.title}`}><img loading="lazy" decoding="async" src={sighting.photo_url} alt={sighting.title} className="h-auto w-full object-contain" /></button>}
     {sighting.description && <p className="text-sm leading-relaxed">{sighting.description}</p>}
     <div className="rounded-xl bg-secondary/60 p-4 text-sm"><p className="flex gap-2"><Clock className="size-4" />{new Date(sighting.seen_at).toLocaleString()}</p><p className="mt-2 flex gap-2"><MapPin className="size-4" />{sighting.latitude.toFixed(4)}, {sighting.longitude.toFixed(4)}</p>{sighting.contact_info && <p className="mt-2">Contact: {sighting.contact_info}</p>}</div>
     <Button onClick={share}><Share2 className="size-4"/>Share sighting link</Button>

@@ -143,7 +143,7 @@ export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound, onSi
               aria-label={`View full photo of ${dog.name}`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={dog.photo_url || "/placeholder.svg"} alt={`Photo of ${dog.name}`} className="h-auto w-full object-contain" />
+              <img loading="lazy" decoding="async" src={dog.photo_url || "/placeholder.svg"} alt={`Photo of ${dog.name}`} className="h-auto w-full object-contain" />
             </button>
           ) : (
             <div className="flex h-40 items-center justify-center text-muted-foreground">
