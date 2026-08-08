@@ -19,7 +19,6 @@ import { OnboardingTour } from "@/components/onboarding-tour"
 import { WhatsNewOverlay } from "@/components/whats-new-overlay"
 import { MobileReportSheet } from "@/components/mobile-report-sheet"
 import { UsernameSetupDialog } from "@/components/username-setup-dialog"
-import { LegacyClaimDialog } from "@/components/legacy-claim-dialog"
 import { createClient } from "@/lib/supabase/client"
 import type { MissingDog, Volunteer, Sighting } from "@/lib/types"
 
@@ -119,7 +118,6 @@ export function FinderApp({ initialDogs, initialCounts, initialSightings }: Prop
       <main className="absolute inset-0 z-0 md:relative md:flex-1"><DogMap dogs={filtered} sightings={sightings} selectedId={selectedId} onSelect={d=>{focusDogOnly(d);setDetailDog(d)}} onSelectSighting={s=>{focus(s.latitude,s.longitude);setDetailSighting(s)}} center={center} recenterTrigger={recenterTrigger} recenterZoom={mapUserPoint?17:13} privateUserPoint={mapUserPoint} privateUserAccuracy={mapUserAccuracy}/><Button type="button" variant="outline" size="icon-lg" onClick={locateMe} disabled={locating} title="Show my private location" aria-label="Show my private location" className="absolute right-4 top-4 z-20 rounded-full bg-card shadow-lg md:bottom-6 md:top-auto">{locating?<Loader2 className="size-5 animate-spin"/>:<LocateFixed className="size-5"/>}</Button>{locationMessage&&<div className="absolute right-4 top-20 z-20 max-w-[calc(100vw-2rem)] rounded-lg border bg-card/95 px-3 py-2 text-xs shadow-lg backdrop-blur md:bottom-20 md:top-auto md:max-w-xs" role="status">{locationMessage}</div>}</main>
       <MobileReportSheet><div className="flex h-full min-h-0 flex-col"><div className="shrink-0 border-b px-4 pb-3"><div className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search name, breed, area…" className="h-11 w-full rounded-2xl border bg-card pl-10 pr-3 text-sm outline-none"/></div><div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground"><span><span className="inline-block size-2 rounded-full bg-orange-600"/> Missing reports</span><span><span className="inline-block size-2 rounded-full bg-green-600"/> Sightings</span></div></div><div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4 pb-24">{filtered.map(d=><DogCard key={d.id} dog={d} volunteerCount={counts[d.id]||0} selected={d.id===selectedId} onClick={()=>{focusDogOnly(d);setDetailDog(d)}}/>)}{filtered.length===0&&<div className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">No reports match your search.</div>}</div></div></MobileReportSheet>
     </div>
-    <LegacyClaimDialog userId={user?.id || null} />
     <OnboardingTour />
     <WhatsNewOverlay />
     <TermsSafetyButton />

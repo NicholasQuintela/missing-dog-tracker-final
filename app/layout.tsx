@@ -2,6 +2,7 @@ import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Nunito, Nunito_Sans } from 'next/font/google'
 import './globals.css'
+import { PwaRegister } from '@/components/pwa-register'
 
 const nunito = Nunito({
   subsets: ['latin'],
@@ -20,6 +21,13 @@ export const metadata: Metadata = {
   description:
     'Report missing pets, browse a live map of lost pets near you, and volunteer to help bring them home.',
   generator: 'v0.app',
+  applicationName: 'Pet Alert PH',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    title: 'Pet Alert PH',
+    statusBarStyle: 'default',
+  },
   icons: {
     icon: [
       {
@@ -56,6 +64,7 @@ export default function RootLayout({
     <html lang="en" className={`bg-background ${nunito.variable} ${nunitoSans.variable}`}>
       <body className="antialiased font-sans">
         {children}
+        <PwaRegister />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
