@@ -28,7 +28,7 @@ export type MissingDog = {
 
 export type Sighting = {
   id: string
-  reporter_id: string
+  reporter_id: string | null
   dog_id: string | null
   title: string
   description: string | null

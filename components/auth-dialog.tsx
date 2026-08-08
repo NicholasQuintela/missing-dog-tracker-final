@@ -43,7 +43,7 @@ export function AuthDialog({ open, onClose }: Props) {
         })
         if (error) throw error
         if (data.session) onClose()
-        else setMessage("Account created. Email confirmation is still enabled in Supabase. Turn off Confirm Email in Authentication → Providers → Email so new users can log in immediately without confirmation emails.")
+        else setMessage("Account created. If you cannot log in immediately, check the Email provider settings in Supabase and make sure Confirm Email is turned off.")
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.")
