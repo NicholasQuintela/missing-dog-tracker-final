@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { CaptchaWidget } from "@/components/captcha-widget"
+import { AccountDeletionRequestDialog } from "@/components/account-deletion-request-dialog"
 
 export function DesktopLoginClient() {
   const supabase = createClient()
@@ -16,6 +17,7 @@ export function DesktopLoginClient() {
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [alreadySignedIn, setAlreadySignedIn] = useState(false)
+  const [forgotOpen, setForgotOpen] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -77,6 +79,7 @@ export function DesktopLoginClient() {
   }
 
   return (
+    <>
     <main className="min-h-screen bg-background px-4 py-8 text-foreground">
       <div className="mx-auto w-full max-w-md rounded-3xl border bg-card p-6 shadow-xl sm:p-8">
         <div className="mb-6 text-center">
@@ -118,6 +121,16 @@ export function DesktopLoginClient() {
                 </label>
               )}
 
+              {mode === "login" && (
+                <button
+                  type="button"
+                  className="-mt-1 self-start text-sm font-semibold text-primary underline underline-offset-4 hover:text-primary/80"
+                  onClick={() => setForgotOpen(true)}
+                >
+                  Forgot password? Request account deletion
+                </button>
+              )}
+
               <div className="min-h-16 overflow-hidden rounded-xl border bg-background p-2">
                 <CaptchaWidget onToken={setCaptchaToken} />
               </div>
@@ -135,5 +148,7 @@ export function DesktopLoginClient() {
         <p className="mt-5 text-center text-xs text-muted-foreground">This lightweight page loads no map, report feed, pet photos, comments, or messages.</p>
       </div>
     </main>
+    <AccountDeletionRequestDialog open={forgotOpen} onClose={() => setForgotOpen(false)} />
+    </>
   )
 }

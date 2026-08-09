@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react"
 import { ExternalLink, Loader2, Trash2 } from "lucide-react"
 import { CaptchaWidget } from "@/components/captcha-widget"
+import { IS_DESKTOP_BUILD } from "@/lib/desktop"
 import { Field, inputClass, Modal } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 
@@ -42,19 +43,21 @@ export function AccountDeletionRequestDialog({ open, onClose }: Props) {
       setMessage("Please confirm that you understand account deletion is permanent.")
       return
     }
-    if (!captchaToken) {
+    if (!IS_DESKTOP_BUILD && !captchaToken) {
       setMessage("Please complete the CAPTCHA first.")
       return
     }
 
     setBusy(true)
     try {
-      const captchaResponse = await fetch("/api/verify-captcha", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: captchaToken }),
-      })
-      if (!captchaResponse.ok) throw new Error("CAPTCHA verification failed. Please try again.")
+      if (!IS_DESKTOP_BUILD) {
+        const captchaResponse = await fetch("/api/verify-captcha", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: captchaToken }),
+        })
+        if (!captchaResponse.ok) throw new Error("CAPTCHA verification failed. Please try again.")
+      }
 
       const body = [
         "Hello Pet Alert PH Support,",
@@ -103,7 +106,7 @@ export function AccountDeletionRequestDialog({ open, onClose }: Props) {
         <span>I understand that deleting my account is permanent and I may need to recreate my reports and other activity using a new account.</span>
       </label>
 
-      <CaptchaWidget onToken={onCaptchaToken} />
+      {!IS_DESKTOP_BUILD && <CaptchaWidget onToken={onCaptchaToken} />}
       {message && <p className="rounded-xl border bg-muted p-3 text-sm" role="status">{message}</p>}
 
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
