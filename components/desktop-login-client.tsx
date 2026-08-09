@@ -19,16 +19,25 @@ export function DesktopLoginClient() {
   const [alreadySignedIn, setAlreadySignedIn] = useState(false)
   const [forgotOpen, setForgotOpen] = useState(false)
 
+  const mobileMode = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mobile") === "1"
+
+  function returnToMobileApp(session: { access_token: string; refresh_token: string } | null) {
+    if (!mobileMode || !session) return false
+    const params = new URLSearchParams({ access_token: session.access_token, refresh_token: session.refresh_token })
+    window.location.href = `petalertph://auth/callback#${params.toString()}`
+    return true
+  }
+
   useEffect(() => {
     let active = true
     supabase.auth.getSession().then(({ data }) => {
-      if (active && data.session) {
+      if (active && data.session && !mobileMode) {
         setAlreadySignedIn(true)
         setMessage("Signed in. Returning you to the Pet Alert PH desktop app…")
       }
     })
     return () => { active = false }
-  }, [supabase])
+  }, [supabase, mobileMode])
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
@@ -40,12 +49,13 @@ export function DesktopLoginClient() {
       if (!captchaToken) throw new Error("Please complete the CAPTCHA.")
 
       if (mode === "login") {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
           options: { captchaToken },
         })
         if (signInError) throw signInError
+        if (returnToMobileApp(signInData.session)) { setMessage("Login successful. Returning you to the Pet Alert PH mobile app…"); return }
         setAlreadySignedIn(true)
         setMessage("Login successful. Returning you to the Pet Alert PH desktop app…")
       } else {
@@ -67,6 +77,7 @@ export function DesktopLoginClient() {
           setCaptchaToken(null)
           return
         }
+        if (returnToMobileApp(data.session)) { setMessage("Account created. Returning you to the Pet Alert PH mobile app…"); return }
         setAlreadySignedIn(true)
         setMessage("Account created and signed in. Returning you to the desktop app…")
       }
@@ -85,7 +96,7 @@ export function DesktopLoginClient() {
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-2xl bg-primary text-2xl text-primary-foreground">🐾</div>
           <h1 className="text-2xl font-extrabold tracking-tight">Pet Alert PH</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Secure desktop authentication</p>
+          <p className="mt-1 text-sm text-muted-foreground">Secure app authentication</p>
         </div>
 
         {alreadySignedIn ? (
@@ -139,7 +150,7 @@ export function DesktopLoginClient() {
               {message && <p className="rounded-xl bg-muted px-3 py-2 text-sm">{message}</p>}
 
               <button type="submit" disabled={busy} className="w-full rounded-xl bg-primary px-4 py-3 font-extrabold text-primary-foreground disabled:opacity-50">
-                {busy ? "Please wait…" : mode === "login" ? "Log in to desktop app" : "Create account"}
+                {busy ? "Please wait…" : mode === "login" ? "Log in to app" : "Create account"}
               </button>
             </form>
           </>
