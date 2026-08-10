@@ -6,6 +6,7 @@ import { Modal, Field, inputClass } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import { CaptchaWidget } from "@/components/captcha-widget"
+import { IS_DESKTOP_BUILD } from "@/lib/desktop"
 import { LocationPicker, type AddressFields } from "@/components/location-picker"
 import type { MissingDog, Sighting } from "@/lib/types"
 import { optimizeImageForUpload } from "@/lib/image-optimization"
@@ -14,7 +15,7 @@ type Props = {
   open: boolean
   onClose: () => void
   defaultCenter: [number, number]
-  dogs: MissingDog[]
+  dogs: Array<Pick<MissingDog, "id" | "name">>
   defaultDogId?: string | null
   onCreated: (sighting: Sighting, conversationId: string | null) => void
 }
@@ -133,14 +134,15 @@ export function SightingDialog({
       if (!title.trim()) throw new Error("Please add a short sighting title.")
       if (!seenAt) throw new Error("Please select when the pet was seen.")
       if (!point) throw new Error("Please select where the pet was seen before submitting.")
-      if (!captchaToken) throw new Error("Please complete the CAPTCHA.")
-
-      const captchaResponse = await fetch("/api/verify-captcha", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: captchaToken }),
-      })
-      if (!captchaResponse.ok) throw new Error("CAPTCHA verification failed. Please try again.")
+      if (!IS_DESKTOP_BUILD) {
+        if (!captchaToken) throw new Error("Please complete the CAPTCHA.")
+        const captchaResponse = await fetch("/api/verify-captcha", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: captchaToken }),
+        })
+        if (!captchaResponse.ok) throw new Error("CAPTCHA verification failed. Please try again.")
+      }
 
       const {
         data: { user },
@@ -333,7 +335,7 @@ export function SightingDialog({
           />
         </Field>
 
-        <CaptchaWidget onToken={setCaptchaToken} />
+        {!IS_DESKTOP_BUILD && <CaptchaWidget onToken={setCaptchaToken} />}
 
         {error && <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
 

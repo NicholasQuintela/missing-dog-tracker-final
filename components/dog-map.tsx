@@ -45,11 +45,13 @@ function MapController({ center, trigger, zoom }: { center: [number, number]; tr
   return null
 }
 
+export type DogMapMarker = Pick<MissingDog, "id" | "name" | "latitude" | "longitude">
+
 type Props = {
-  dogs: MissingDog[]
+  dogs: DogMapMarker[]
   sightings?: Sighting[]
   selectedId: string | null
-  onSelect: (dog: MissingDog) => void
+  onSelect: (dog: DogMapMarker) => void
   onSelectSighting?: (sighting: Sighting) => void
   center: [number, number]
   recenterTrigger: number
