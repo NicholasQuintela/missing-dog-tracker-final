@@ -4,6 +4,7 @@ import { MapPin, Gift, Users, CheckCircle2 } from "lucide-react"
 import type { MissingDog } from "@/lib/types"
 import { formatReward } from "@/lib/currency"
 import { cn } from "@/lib/utils"
+import { publicPhotoSrc } from "@/lib/public-photo"
 
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime()
@@ -39,7 +40,7 @@ export function DogCard({ dog, volunteerCount, selected, onClick }: Props) {
           <img
             loading="lazy"
             decoding="async"
-            src={dog.photo_url || "/placeholder.svg"}
+            src={publicPhotoSrc(dog.photo_url, dog.photo_path)}
             alt={`Photo of ${dog.name}`}
             className={cn("h-full w-full object-cover", isFound && "opacity-70")}
           />

@@ -27,7 +27,6 @@ const DogMap = dynamic(() => import("@/components/dog-map"), { ssr: false, loadi
 const DEFAULT_CENTER: [number, number] = [14.5995, 120.9842]
 const PAGE_SIZE = 10
 const CACHE_KEY = "petalertph:web:loaded-reports:v1"
-const DOG_COLUMNS = "id,owner_id,name,breed_details,photo_url,photo_path,reward,reward_currency,contact_info,latitude,longitude,region,city,barangay,street_or_landmark,location_source,last_seen,status,created_at,found_by,found_by_user_id,found_photo_url,found_photo_path,found_note,found_at"
 
 type MapDog = Pick<MissingDog, "id" | "name" | "latitude" | "longitude" | "status" | "created_at">
 type Props = {
@@ -117,12 +116,14 @@ export function FinderApp({ initialDogs, initialMapDogs, initialCounts, initialS
   const loadDogById = useCallback(async (id: string) => {
     const existing = dogs.find((dog) => dog.id === id)
     if (existing) return existing
-    const { data } = await supabase.from("missing_dogs").select(DOG_COLUMNS).eq("id", id).eq("status", "active").maybeSingle()
-    if (!data) return null
-    const dog = data as MissingDog
+    const response = await fetch(`/api/public/reports?id=${encodeURIComponent(id)}`)
+    if (!response.ok) return null
+    const payload = await response.json() as { report?: MissingDog | null }
+    if (!payload.report) return null
+    const dog = payload.report
     setDogs((current) => mergeDogs(current, [dog]))
     return dog
-  }, [dogs, supabase])
+  }, [dogs])
 
   useEffect(() => {
     let cancelled = false
@@ -180,13 +181,10 @@ export function FinderApp({ initialDogs, initialMapDogs, initialCounts, initialS
     setLoadingMore(true)
     try {
       // Fetch only the next unseen batch. Existing batches remain in local storage.
-      const { data } = await supabase
-        .from("missing_dogs")
-        .select(DOG_COLUMNS)
-        .eq("status", "active")
-        .order("created_at", { ascending: false })
-        .range(dogs.length, dogs.length + PAGE_SIZE - 1)
-      if (data?.length) setDogs((current) => mergeDogs(current, data as MissingDog[]))
+      const response = await fetch(`/api/public/reports?offset=${dogs.length}&limit=${PAGE_SIZE}`)
+      if (!response.ok) throw new Error("Unable to load more reports.")
+      const payload = await response.json() as { reports?: MissingDog[] }
+      if (payload.reports?.length) setDogs((current) => mergeDogs(current, payload.reports || []))
       setVisibleCount(target)
     } finally {
       setLoadingMore(false)

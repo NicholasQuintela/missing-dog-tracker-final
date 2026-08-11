@@ -12,6 +12,7 @@ import { FoundClaimsPanel } from "@/components/found-claims-panel"
 import { EditReportDialog } from "@/components/edit-report-dialog"
 import { ReportCommunity } from "@/components/report-community"
 import { removeStoredPhoto } from "@/lib/storage-photo"
+import { publicPhotoSrc } from "@/lib/public-photo"
 import { FullscreenPhotoViewer } from "@/components/fullscreen-photo-viewer"
 
 type Props = {
@@ -143,7 +144,7 @@ export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound, onSi
               aria-label={`View full photo of ${dog.name}`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img loading="lazy" decoding="async" src={dog.photo_url || "/placeholder.svg"} alt={`Photo of ${dog.name}`} className="h-auto w-full object-contain" />
+              <img loading="lazy" decoding="async" src={publicPhotoSrc(dog.photo_url, dog.photo_path)} alt={`Photo of ${dog.name}`} className="h-auto w-full object-contain" />
             </button>
           ) : (
             <div className="flex h-40 items-center justify-center text-muted-foreground">
@@ -164,7 +165,7 @@ export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound, onSi
             {dog.found_photo_url && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={dog.found_photo_url || "/placeholder.svg"}
+                src={publicPhotoSrc(dog.found_photo_url, dog.found_photo_path)}
                 alt={`${dog.name} after being found`}
                 className="max-h-56 w-full rounded-xl object-cover"
               />
@@ -262,7 +263,7 @@ export function DogDetailDialog({ open, onClose, dog, onVolunteer, onFound, onSi
       {dog.photo_url && (
         <FullscreenPhotoViewer
           open={photoOpen}
-          src={dog.photo_url}
+          src={publicPhotoSrc(dog.photo_url, dog.photo_path)}
           alt={`Photo of ${dog.name}`}
           onClose={() => setPhotoOpen(false)}
         />
