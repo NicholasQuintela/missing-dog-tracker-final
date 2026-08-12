@@ -5,6 +5,7 @@ import { CheckCircle2, Loader2, MessageCircle, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import { removeStoredPhoto } from "@/lib/storage-photo"
+import { publicPhotoSrc } from "@/lib/public-photo"
 
 type Claim = {
   id: string
@@ -101,7 +102,7 @@ export function FoundClaimReview({
       <span className="rounded-full bg-muted px-3 py-1 text-xs font-bold capitalize">{claim.status}</span>
     </div>
 
-    {claim.photo_url ? <img loading="lazy" decoding="async" src={claim.photo_url} alt="Proof submitted by finder" className="mt-5 max-h-[28rem] w-full rounded-2xl bg-muted object-contain" /> : <div className="mt-5 rounded-2xl border border-dashed p-8 text-center text-sm text-muted-foreground">No proof image is available.</div>}
+    {claim.photo_url ? <img loading="lazy" decoding="async" src={publicPhotoSrc(claim.photo_url)} alt="Proof submitted by finder" className="mt-5 max-h-[28rem] w-full rounded-2xl bg-muted object-contain" /> : <div className="mt-5 rounded-2xl border border-dashed p-8 text-center text-sm text-muted-foreground">No proof image is available.</div>}
 
     <div className="mt-5 rounded-xl bg-muted p-4"><p className="font-bold">Submitted by {claim.finder_name}</p><p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{claim.note || "No additional details were provided."}</p></div>
     {error && <p className="mt-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
