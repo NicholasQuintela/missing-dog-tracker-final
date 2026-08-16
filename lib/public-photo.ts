@@ -11,8 +11,13 @@ function pathFromPublicUrl(publicUrl?: string | null) {
   }
 }
 
+/**
+ * Strict public-photo policy:
+ * Browser-visible pet photos must use the same-origin Vercel proxy.
+ * Never return a raw Supabase Storage URL as a display fallback.
+ */
 export function publicPhotoSrc(publicUrl?: string | null, path?: string | null) {
   const storagePath = path || pathFromPublicUrl(publicUrl)
   if (storagePath) return `/api/public/photo?path=${encodeURIComponent(storagePath)}`
-  return publicUrl || "/placeholder.svg"
+  return "/placeholder.svg"
 }

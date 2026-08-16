@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Bug, CheckCircle2, ExternalLink, EyeOff, Trash2 } from "lucide-react"
+import { BarChart3, Bug, CheckCircle2, ExternalLink, EyeOff, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 
@@ -35,15 +35,35 @@ type BugItem = {
 }
 
 type Stats = { users:number; reports:number; activeReports:number; solvedReports:number; sightings:number; volunteers:number; pendingAbuse:number; openBugs:number }
+type AnalyticsRow = { visit_date: string; unique_visitors: number }
 
 export function ModerationCenter({ initialItems, initialBugs, stats, role }: { initialItems: AbuseItem[]; initialBugs: BugItem[]; stats: Stats; role: string }) {
   const supabase = useMemo(() => createClient(), [])
   const [items, setItems] = useState(initialItems)
   const [bugs, setBugs] = useState(initialBugs)
-  const [section, setSection] = useState<"abuse" | "bugs">("abuse")
+  const [section, setSection] = useState<"abuse" | "bugs" | "analytics">("abuse")
   const [filter, setFilter] = useState("pending")
   const [bugFilter, setBugFilter] = useState("open")
   const [busyId, setBusyId] = useState<string | null>(null)
+  const today = useMemo(() => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()), [])
+  const [analyticsFrom, setAnalyticsFrom] = useState(today)
+  const [analyticsTo, setAnalyticsTo] = useState(today)
+  const [analyticsRows, setAnalyticsRows] = useState<AnalyticsRow[]>([])
+  const [analyticsLoading, setAnalyticsLoading] = useState(false)
+  const [analyticsLoaded, setAnalyticsLoaded] = useState(false)
+
+  async function loadAnalytics() {
+    if (!analyticsFrom || !analyticsTo || analyticsFrom > analyticsTo) {
+      alert("Choose a valid date range.")
+      return
+    }
+    setAnalyticsLoading(true)
+    const result = await supabase.rpc("get_pet_alert_visitor_analytics", { p_from: analyticsFrom, p_to: analyticsTo })
+    if (result.error) alert(result.error.message)
+    else setAnalyticsRows(((result.data || []) as { visit_date: string; unique_visitors: number | string }[]).map(row => ({ visit_date: row.visit_date, unique_visitors: Number(row.unique_visitors || 0) })))
+    setAnalyticsLoaded(true)
+    setAnalyticsLoading(false)
+  }
 
   async function moderate(item: AbuseItem, action: "remove" | "ignore") {
     const notes = window.prompt(action === "remove" ? "Optional moderation note for removal:" : "Optional reason for ignoring this report:", "")
@@ -87,6 +107,7 @@ export function ModerationCenter({ initialItems, initialBugs, stats, role }: { i
         <div className="flex gap-2">
           <button onClick={() => setSection("abuse")} className={`rounded-xl px-4 py-2 text-sm font-bold ${section === "abuse" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>Reported content</button>
           <button onClick={() => setSection("bugs")} className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold ${section === "bugs" ? "bg-primary text-primary-foreground" : "bg-muted"}`}><Bug className="size-4"/>Bug Reports</button>
+          <button onClick={() => setSection("analytics")} className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold ${section === "analytics" ? "bg-primary text-primary-foreground" : "bg-muted"}`}><BarChart3 className="size-4"/>Analytics</button>
         </div>
         <span className="rounded-full border px-3 py-1 text-xs font-bold capitalize">Role: {role}</span>
       </div>
@@ -110,7 +131,7 @@ export function ModerationCenter({ initialItems, initialBugs, stats, role }: { i
           </div>
         </article>)}
       </div>
-    </section> : <section className="rounded-2xl border bg-card p-4 sm:p-6">
+    </section> : section === "bugs" ? <section className="rounded-2xl border bg-card p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 text-xl font-bold"><Bug className="size-5"/>Bug Reports</h2><p className="text-sm text-muted-foreground">Review technical problems submitted by users.</p></div><div className="flex flex-wrap gap-2">{["open","new","investigating","fixed","closed","all"].map(x => <button key={x} onClick={()=>setBugFilter(x)} className={`rounded-full px-3 py-1.5 text-xs font-bold capitalize ${bugFilter===x?"bg-primary text-primary-foreground":"bg-muted"}`}>{x}</button>)}</div></div>
       <div className="mt-5 space-y-3">
         {!shownBugs.length ? <p className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">No bug reports in this filter.</p> : shownBugs.map(item => <article key={item.id} className="rounded-xl border p-4">
@@ -132,6 +153,24 @@ export function ModerationCenter({ initialItems, initialBugs, stats, role }: { i
           </div>
         </article>)}
       </div>
+    </section> : <section className="rounded-2xl border bg-card p-4 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div><h2 className="flex items-center gap-2 text-xl font-bold"><BarChart3 className="size-5"/>Private Visitor Analytics</h2><p className="text-sm text-muted-foreground">Counts unique browser/device visitors by Philippine date. No GPS, IP address, or personal profile data is stored.</p></div>
+      </div>
+      <div className="mt-5 flex flex-wrap items-end gap-3">
+        <label className="grid gap-1 text-sm font-semibold">From<input type="date" value={analyticsFrom} onChange={(e)=>setAnalyticsFrom(e.target.value)} className="h-10 rounded-lg border bg-background px-3 font-normal"/></label>
+        <label className="grid gap-1 text-sm font-semibold">To<input type="date" value={analyticsTo} onChange={(e)=>setAnalyticsTo(e.target.value)} className="h-10 rounded-lg border bg-background px-3 font-normal"/></label>
+        <Button onClick={()=>void loadAnalytics()} disabled={analyticsLoading}>{analyticsLoading ? "Loading…" : "Check visitors"}</Button>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <article className="rounded-xl border p-4"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Visitors in selected range</p><p className="mt-2 text-3xl font-extrabold">{analyticsRows.reduce((sum,row)=>sum+row.unique_visitors,0)}</p><p className="mt-1 text-xs text-muted-foreground">Daily unique browser/device counts added together.</p></article>
+        <article className="rounded-xl border p-4"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Days selected</p><p className="mt-2 text-3xl font-extrabold">{analyticsRows.length}</p><p className="mt-1 text-xs text-muted-foreground">Only dates with at least one recorded visitor appear below.</p></article>
+      </div>
+      <div className="mt-5 overflow-hidden rounded-xl border">
+        <div className="grid grid-cols-2 bg-muted px-4 py-2 text-xs font-bold uppercase tracking-wide"><span>Date</span><span className="text-right">Unique visitors</span></div>
+        {!analyticsLoaded ? <p className="p-6 text-center text-sm text-muted-foreground">Choose a date or date range, then click Check visitors.</p> : !analyticsRows.length ? <p className="p-6 text-center text-sm text-muted-foreground">No visitor records for this date range.</p> : analyticsRows.map(row => <div key={row.visit_date} className="grid grid-cols-2 border-t px-4 py-3 text-sm"><span>{row.visit_date}</span><strong className="text-right">{row.unique_visitors}</strong></div>)}
+      </div>
+      <p className="mt-4 text-xs text-muted-foreground">For your egress test: Supabase Cached Egress for a date ÷ this visitor count = approximate cached egress per visitor. Incognito/private sessions, cleared browser storage, or multiple devices can count as separate visitors.</p>
     </section>}
   </div>
 }

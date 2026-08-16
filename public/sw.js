@@ -2,7 +2,7 @@
  * Focus: aggressively reuse public pet photos and immutable app assets.
  * Dynamic/private Supabase REST data is intentionally NOT cached.
  */
-const VERSION = "pet-alert-ph-pc-v1";
+const VERSION = "pet-alert-ph-pc-v3-strict";
 const STATIC_CACHE = `${VERSION}-static`;
 const MEDIA_CACHE = `${VERSION}-media`;
 const MEDIA_LIMIT = 500;
@@ -45,11 +45,20 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-function isPetPhoto(url) {
-  return (
-    url.hostname.endsWith(".supabase.co") &&
-    url.pathname.includes("/storage/v1/object/public/dog-photos/")
-  );
+function legacySupabasePhotoPath(url) {
+  if (!url.hostname.endsWith(".supabase.co")) return null;
+  const marker = "/storage/v1/object/public/dog-photos/";
+  const index = url.pathname.indexOf(marker);
+  if (index === -1) return null;
+  try {
+    return decodeURIComponent(url.pathname.slice(index + marker.length));
+  } catch {
+    return url.pathname.slice(index + marker.length);
+  }
+}
+
+function isVercelPhotoProxy(url) {
+  return url.origin === self.location.origin && url.pathname === "/api/public/photo";
 }
 
 function isStaticAsset(request, url) {
@@ -84,8 +93,25 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
 
-  // Biggest egress saver: public report/sighting/found photos.
-  if (isPetPhoto(url)) {
+  // Strict defense-in-depth: a legacy/raw Supabase public pet-photo URL is
+  // rewritten to the same-origin Vercel proxy. The browser never fetches the
+  // Storage object directly, even if old client data still contains that URL.
+  const legacyPath = legacySupabasePhotoPath(url);
+  if (legacyPath) {
+    const proxyUrl = new URL("/api/public/photo", self.location.origin);
+    proxyUrl.searchParams.set("path", legacyPath);
+    const proxyRequest = new Request(proxyUrl.toString(), {
+      method: "GET",
+      headers: request.headers,
+      credentials: "same-origin",
+      mode: "same-origin",
+    });
+    event.respondWith(cacheFirst(proxyRequest, MEDIA_CACHE, MEDIA_LIMIT));
+    return;
+  }
+
+  // Normal public-photo path: local media cache first, then Vercel.
+  if (isVercelPhotoProxy(url)) {
     event.respondWith(cacheFirst(request, MEDIA_CACHE, MEDIA_LIMIT));
     return;
   }
