@@ -35,7 +35,7 @@ type BugItem = {
 }
 
 type Stats = { users:number; reports:number; activeReports:number; solvedReports:number; sightings:number; volunteers:number; pendingAbuse:number; openBugs:number }
-type AnalyticsRow = { metric_date: string; unique_visitors: number; photo_origin_fetches: number; photo_origin_bytes: number; photo_origin_errors: number }
+type AnalyticsRow = { metric_date: string; unique_visitors: number; page_loads: number; sessions: number; photo_origin_fetches: number; photo_origin_bytes: number; photo_origin_errors: number }
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -81,9 +81,11 @@ export function ModerationCenter({ initialItems, initialBugs, stats, role }: { i
     setAnalyticsLoading(true)
     const result = await supabase.rpc("get_pet_alert_egress_analytics", { p_from: analyticsFrom, p_to: analyticsTo })
     if (result.error) alert(result.error.message)
-    else setAnalyticsRows(((result.data || []) as { metric_date: string; unique_visitors: number | string; photo_origin_fetches: number | string; photo_origin_bytes: number | string; photo_origin_errors: number | string }[]).map(row => ({
+    else setAnalyticsRows(((result.data || []) as { metric_date: string; unique_visitors: number | string; page_loads: number | string; sessions: number | string; photo_origin_fetches: number | string; photo_origin_bytes: number | string; photo_origin_errors: number | string }[]).map(row => ({
       metric_date: row.metric_date,
       unique_visitors: Number(row.unique_visitors || 0),
+      page_loads: Number(row.page_loads || 0),
+      sessions: Number(row.sessions || 0),
       photo_origin_fetches: Number(row.photo_origin_fetches || 0),
       photo_origin_bytes: Number(row.photo_origin_bytes || 0),
       photo_origin_errors: Number(row.photo_origin_errors || 0),
@@ -187,15 +189,17 @@ export function ModerationCenter({ initialItems, initialBugs, stats, role }: { i
         <label className="grid gap-1 text-sm font-semibold">To<input type="date" value={analyticsTo} onChange={(e)=>setAnalyticsTo(e.target.value)} className="h-10 rounded-lg border bg-background px-3 font-normal"/></label>
         <Button onClick={()=>void loadAnalytics()} disabled={analyticsLoading}>{analyticsLoading ? "Loading…" : "Check analytics"}</Button>
       </div>
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <article className="rounded-xl border p-4"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Unique visitors</p><p className="mt-2 text-3xl font-extrabold">{analyticsRows.reduce((s,r)=>s+r.unique_visitors,0)}</p></article>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <article className="rounded-xl border p-4"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Unique visitors</p><p className="mt-2 text-3xl font-extrabold">{analyticsRows.reduce((s,r)=>s+r.unique_visitors,0)}</p><p className="mt-1 text-xs text-muted-foreground">Deduplicated browser IDs per Philippine day.</p></article>
+        <article className="rounded-xl border p-4"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">App / page loads</p><p className="mt-2 text-3xl font-extrabold">{analyticsRows.reduce((s,r)=>s+r.page_loads,0)}</p><p className="mt-1 text-xs text-muted-foreground">Counts reloads and later returns.</p></article>
+        <article className="rounded-xl border p-4"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Sessions</p><p className="mt-2 text-3xl font-extrabold">{analyticsRows.reduce((s,r)=>s+r.sessions,0)}</p><p className="mt-1 text-xs text-muted-foreground">A new session starts after 30+ minutes away.</p></article>
         <article className="rounded-xl border p-4"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Vercel → Supabase photo fetches</p><p className="mt-2 text-3xl font-extrabold">{analyticsRows.reduce((s,r)=>s+r.photo_origin_fetches,0)}</p><p className="mt-1 text-xs text-muted-foreground">Only genuine photo-route origin executions.</p></article>
         <article className="rounded-xl border p-4"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Origin photo bytes</p><p className="mt-2 text-3xl font-extrabold">{formatBytes(analyticsRows.reduce((s,r)=>s+r.photo_origin_bytes,0))}</p><p className="mt-1 text-xs text-muted-foreground">Exact photo bytes Supabase returned to Vercel.</p></article>
         <article className="rounded-xl border p-4"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Origin errors</p><p className="mt-2 text-3xl font-extrabold">{analyticsRows.reduce((s,r)=>s+r.photo_origin_errors,0)}</p><p className="mt-1 text-xs text-muted-foreground">Failed Vercel → Supabase photo attempts.</p></article>
       </div>
       <div className="mt-5 overflow-x-auto rounded-xl border">
-        <div className="grid min-w-[760px] grid-cols-5 bg-muted px-4 py-2 text-xs font-bold uppercase tracking-wide"><span>Date</span><span className="text-right">Visitors</span><span className="text-right">Origin fetches</span><span className="text-right">Origin bytes</span><span className="text-right">Errors</span></div>
-        {!analyticsLoaded ? <p className="p-6 text-center text-sm text-muted-foreground">Choose a date or date range, then click Check analytics.</p> : analyticsRows.map(row => <div key={row.metric_date} className="grid min-w-[760px] grid-cols-5 border-t px-4 py-3 text-sm"><span>{row.metric_date}</span><strong className="text-right">{row.unique_visitors}</strong><strong className="text-right">{row.photo_origin_fetches}</strong><strong className="text-right">{formatBytes(row.photo_origin_bytes)}</strong><strong className="text-right">{row.photo_origin_errors}</strong></div>)}
+        <div className="grid min-w-[980px] grid-cols-7 bg-muted px-4 py-2 text-xs font-bold uppercase tracking-wide"><span>Date</span><span className="text-right">Visitors</span><span className="text-right">Loads</span><span className="text-right">Sessions</span><span className="text-right">Origin fetches</span><span className="text-right">Origin bytes</span><span className="text-right">Errors</span></div>
+        {!analyticsLoaded ? <p className="p-6 text-center text-sm text-muted-foreground">Choose a date or date range, then click Check analytics.</p> : analyticsRows.map(row => <div key={row.metric_date} className="grid min-w-[980px] grid-cols-7 border-t px-4 py-3 text-sm"><span>{row.metric_date}</span><strong className="text-right">{row.unique_visitors}</strong><strong className="text-right">{row.page_loads}</strong><strong className="text-right">{row.sessions}</strong><strong className="text-right">{row.photo_origin_fetches}</strong><strong className="text-right">{formatBytes(row.photo_origin_bytes)}</strong><strong className="text-right">{row.photo_origin_errors}</strong></div>)}
       </div>
       <div className="mt-5 rounded-xl border p-4">
         <h3 className="font-bold">Cached Egress comparison</h3>
@@ -204,7 +208,7 @@ export function ModerationCenter({ initialItems, initialBugs, stats, role }: { i
       </div>
       <div className="mt-4 rounded-xl bg-muted p-4 text-sm">
         <p className="font-bold">How to read this</p>
-        <p className="mt-1 text-muted-foreground">If Supabase Cached Egress is much larger than “Origin photo bytes”, the difference is not explained by Vercel fetching public pet photos. Visitor tracking remains one tiny write per browser/device per Philippine day. No analytics polling, GPS, IP storage, or Realtime analytics subscription is added.</p>
+        <p className="mt-1 text-muted-foreground">If Supabase Cached Egress is much larger than “Origin photo bytes”, the difference is not explained by Vercel fetching public pet photos. Activity tracking uses one tiny aggregate RPC per app/page load: no photos, GPS, IP addresses, polling, or Realtime analytics subscription. Unique visitors remain deduplicated, while Loads and Sessions reveal repeat use that could otherwise be hidden.</p>
       </div>
     </section>}
   </div>
