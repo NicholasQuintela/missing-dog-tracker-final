@@ -9,7 +9,7 @@ function safeStoragePath(path: string) {
   return segments.map(encodeURIComponent).join("/")
 }
 
-async function recordOriginFetch(base: string, bytes: number, ok: boolean) {
+async function recordOriginFetch(base: string, photoPath: string, bytes: number, ok: boolean) {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!serviceKey) return
   try {
@@ -22,7 +22,7 @@ async function recordOriginFetch(base: string, bytes: number, ok: boolean) {
         "Content-Type": "application/json",
         Prefer: "return=minimal",
       },
-      body: JSON.stringify({ p_bytes: bytes, p_ok: ok }),
+      body: JSON.stringify({ p_path: photoPath, p_bytes: bytes, p_ok: ok }),
     })
   } catch {
     // Diagnostics must never break photo delivery.
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     const upstream = await fetch(`${base}/storage/v1/object/public/dog-photos/${path}`, { cache: "no-store" })
 
     if (!upstream.ok || !upstream.body) {
-      void recordOriginFetch(base, 0, false)
+      await recordOriginFetch(base, rawPath, 0, false)
       return new Response("Photo not found", {
         status: upstream.status === 404 ? 404 : 502,
         headers: { "Cache-Control": "no-store" },
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     // Supabase returned to Vercel. CDN HITs never execute this code.
     const body = await upstream.arrayBuffer()
     const bytes = body.byteLength
-    void recordOriginFetch(base, bytes, true)
+    await recordOriginFetch(base, rawPath, bytes, true)
 
     const ttl = PHOTO_CDN_TTL_SECONDS.toString()
     const headers = new Headers()
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
     return new Response(body, { status: 200, headers })
   } catch (error) {
     console.error("Public photo proxy failed", error)
-    if (base) void recordOriginFetch(base, 0, false)
+    if (base) await recordOriginFetch(base, rawPath, 0, false)
     return new Response("Unable to load photo", { status: 502, headers: { "Cache-Control": "no-store" } })
   }
 }

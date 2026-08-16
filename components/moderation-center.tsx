@@ -36,6 +36,7 @@ type BugItem = {
 
 type Stats = { users:number; reports:number; activeReports:number; solvedReports:number; sightings:number; volunteers:number; pendingAbuse:number; openBugs:number }
 type AnalyticsRow = { metric_date: string; unique_visitors: number; page_loads: number; sessions: number; photo_origin_fetches: number; photo_origin_bytes: number; photo_origin_errors: number }
+type OriginFetchDetail = { occurred_at: string; photo_path: string; bytes: number; ok: boolean }
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -72,6 +73,7 @@ export function ModerationCenter({ initialItems, initialBugs, stats, role }: { i
   const [analyticsRows, setAnalyticsRows] = useState<AnalyticsRow[]>([])
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
   const [analyticsLoaded, setAnalyticsLoaded] = useState(false)
+  const [originDetails, setOriginDetails] = useState<OriginFetchDetail[]>([])
 
   async function loadAnalytics() {
     if (!analyticsFrom || !analyticsTo || analyticsFrom > analyticsTo) {
@@ -79,7 +81,10 @@ export function ModerationCenter({ initialItems, initialBugs, stats, role }: { i
       return
     }
     setAnalyticsLoading(true)
-    const result = await supabase.rpc("get_pet_alert_egress_analytics", { p_from: analyticsFrom, p_to: analyticsTo })
+    const [result, detailsResult] = await Promise.all([
+      supabase.rpc("get_pet_alert_egress_analytics", { p_from: analyticsFrom, p_to: analyticsTo }),
+      supabase.rpc("get_pet_alert_origin_fetch_details", { p_from: analyticsFrom, p_to: analyticsTo, p_limit: 100 }),
+    ])
     if (result.error) alert(result.error.message)
     else setAnalyticsRows(((result.data || []) as { metric_date: string; unique_visitors: number | string; page_loads: number | string; sessions: number | string; photo_origin_fetches: number | string; photo_origin_bytes: number | string; photo_origin_errors: number | string }[]).map(row => ({
       metric_date: row.metric_date,
@@ -90,6 +95,17 @@ export function ModerationCenter({ initialItems, initialBugs, stats, role }: { i
       photo_origin_bytes: Number(row.photo_origin_bytes || 0),
       photo_origin_errors: Number(row.photo_origin_errors || 0),
     })))
+    if (detailsResult.error) {
+      console.warn("Could not load origin fetch details", detailsResult.error.message)
+      setOriginDetails([])
+    } else {
+      setOriginDetails(((detailsResult.data || []) as { occurred_at: string; photo_path: string; bytes: number | string; ok: boolean }[]).map(row => ({
+        occurred_at: row.occurred_at,
+        photo_path: row.photo_path,
+        bytes: Number(row.bytes || 0),
+        ok: Boolean(row.ok),
+      })))
+    }
     setAnalyticsLoaded(true)
     setAnalyticsLoading(false)
   }
@@ -200,6 +216,14 @@ export function ModerationCenter({ initialItems, initialBugs, stats, role }: { i
       <div className="mt-5 overflow-x-auto rounded-xl border">
         <div className="grid min-w-[980px] grid-cols-7 bg-muted px-4 py-2 text-xs font-bold uppercase tracking-wide"><span>Date</span><span className="text-right">Visitors</span><span className="text-right">Loads</span><span className="text-right">Sessions</span><span className="text-right">Origin fetches</span><span className="text-right">Origin bytes</span><span className="text-right">Errors</span></div>
         {!analyticsLoaded ? <p className="p-6 text-center text-sm text-muted-foreground">Choose a date or date range, then click Check analytics.</p> : analyticsRows.map(row => <div key={row.metric_date} className="grid min-w-[980px] grid-cols-7 border-t px-4 py-3 text-sm"><span>{row.metric_date}</span><strong className="text-right">{row.unique_visitors}</strong><strong className="text-right">{row.page_loads}</strong><strong className="text-right">{row.sessions}</strong><strong className="text-right">{row.photo_origin_fetches}</strong><strong className="text-right">{formatBytes(row.photo_origin_bytes)}</strong><strong className="text-right">{row.photo_origin_errors}</strong></div>)}
+      </div>
+      <div className="mt-5 overflow-x-auto rounded-xl border">
+        <div className="border-b bg-muted px-4 py-3">
+          <h3 className="font-bold">Recent Vercel → Supabase photo origin fetches</h3>
+          <p className="mt-1 text-xs text-muted-foreground">Up to 100 fetches in the selected date range. Each row is a genuine origin execution, not a CDN HIT.</p>
+        </div>
+        <div className="grid min-w-[860px] grid-cols-[170px_1fr_120px_90px] bg-muted/60 px-4 py-2 text-xs font-bold uppercase tracking-wide"><span>Time (PH)</span><span>Storage object</span><span className="text-right">Bytes</span><span className="text-right">Result</span></div>
+        {!analyticsLoaded ? <p className="p-6 text-center text-sm text-muted-foreground">Choose a date or date range, then click Check analytics.</p> : !originDetails.length ? <p className="p-6 text-center text-sm text-muted-foreground">No photo origin fetches recorded for this range.</p> : originDetails.map((row, index) => <div key={`${row.occurred_at}-${row.photo_path}-${index}`} className="grid min-w-[860px] grid-cols-[170px_1fr_120px_90px] border-t px-4 py-3 text-sm"><span>{new Date(row.occurred_at).toLocaleString("en-PH", { timeZone: "Asia/Manila", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span><span className="truncate font-mono text-xs" title={row.photo_path}>{row.photo_path}</span><strong className="text-right">{formatBytes(row.bytes)}</strong><strong className={`text-right ${row.ok ? "text-emerald-600" : "text-destructive"}`}>{row.ok ? "OK" : "ERROR"}</strong></div>)}
       </div>
       <div className="mt-5 rounded-xl border p-4">
         <h3 className="font-bold">Cached Egress comparison</h3>
