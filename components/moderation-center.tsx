@@ -35,7 +35,28 @@ type BugItem = {
 }
 
 type Stats = { users:number; reports:number; activeReports:number; solvedReports:number; sightings:number; volunteers:number; pendingAbuse:number; openBugs:number }
-type AnalyticsRow = { visit_date: string; unique_visitors: number }
+type AnalyticsRow = { metric_date: string; unique_visitors: number; photo_origin_fetches: number; photo_origin_bytes: number; photo_origin_errors: number }
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
+}
+
+function EgressCalculator({ rows }: { rows: AnalyticsRow[] }) {
+  const [mb, setMb] = useState("")
+  const visitors = rows.length === 1 ? rows[0].unique_visitors : 0
+  const cachedMb = Number(mb)
+  const perVisitor = visitors > 0 && Number.isFinite(cachedMb) ? cachedMb / visitors : null
+  const originMb = rows.length === 1 ? rows[0].photo_origin_bytes / (1024 * 1024) : 0
+  const unexplained = Number.isFinite(cachedMb) ? Math.max(0, cachedMb - originMb) : null
+  return <div className="mt-3 grid gap-3 sm:grid-cols-3">
+    <label className="grid gap-1 text-sm font-semibold">Supabase Cached Egress (MB)<input inputMode="decimal" value={mb} onChange={e=>setMb(e.target.value)} placeholder="e.g. 26" className="h-10 rounded-lg border bg-background px-3 font-normal"/></label>
+    <article className="rounded-lg border p-3"><p className="text-xs font-bold uppercase text-muted-foreground">Cached egress / visitor</p><p className="mt-1 text-xl font-extrabold">{perVisitor === null ? "—" : `${perVisitor.toFixed(2)} MB`}</p></article>
+    <article className="rounded-lg border p-3"><p className="text-xs font-bold uppercase text-muted-foreground">Not explained by Vercel photo origin</p><p className="mt-1 text-xl font-extrabold">{unexplained === null ? "—" : `${unexplained.toFixed(2)} MB`}</p></article>
+    {rows.length !== 1 && <p className="sm:col-span-3 text-xs text-muted-foreground">Select exactly one day to calculate per-visitor and unexplained egress.</p>}
+  </div>
+}
 
 export function ModerationCenter({ initialItems, initialBugs, stats, role }: { initialItems: AbuseItem[]; initialBugs: BugItem[]; stats: Stats; role: string }) {
   const supabase = useMemo(() => createClient(), [])
@@ -58,9 +79,15 @@ export function ModerationCenter({ initialItems, initialBugs, stats, role }: { i
       return
     }
     setAnalyticsLoading(true)
-    const result = await supabase.rpc("get_pet_alert_visitor_analytics", { p_from: analyticsFrom, p_to: analyticsTo })
+    const result = await supabase.rpc("get_pet_alert_egress_analytics", { p_from: analyticsFrom, p_to: analyticsTo })
     if (result.error) alert(result.error.message)
-    else setAnalyticsRows(((result.data || []) as { visit_date: string; unique_visitors: number | string }[]).map(row => ({ visit_date: row.visit_date, unique_visitors: Number(row.unique_visitors || 0) })))
+    else setAnalyticsRows(((result.data || []) as { metric_date: string; unique_visitors: number | string; photo_origin_fetches: number | string; photo_origin_bytes: number | string; photo_origin_errors: number | string }[]).map(row => ({
+      metric_date: row.metric_date,
+      unique_visitors: Number(row.unique_visitors || 0),
+      photo_origin_fetches: Number(row.photo_origin_fetches || 0),
+      photo_origin_bytes: Number(row.photo_origin_bytes || 0),
+      photo_origin_errors: Number(row.photo_origin_errors || 0),
+    })))
     setAnalyticsLoaded(true)
     setAnalyticsLoading(false)
   }
@@ -154,23 +181,31 @@ export function ModerationCenter({ initialItems, initialBugs, stats, role }: { i
         </article>)}
       </div>
     </section> : <section className="rounded-2xl border bg-card p-4 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div><h2 className="flex items-center gap-2 text-xl font-bold"><BarChart3 className="size-5"/>Private Visitor Analytics</h2><p className="text-sm text-muted-foreground">Counts unique browser/device visitors by Philippine date. No GPS, IP address, or personal profile data is stored.</p></div>
-      </div>
+      <div><h2 className="flex items-center gap-2 text-xl font-bold"><BarChart3 className="size-5"/>Egress Investigation Dashboard</h2><p className="text-sm text-muted-foreground">Private diagnostics for Operation Vercel CDN Strict. Heavy metrics are recorded only when Vercel genuinely fetches a pet photo from Supabase.</p></div>
       <div className="mt-5 flex flex-wrap items-end gap-3">
         <label className="grid gap-1 text-sm font-semibold">From<input type="date" value={analyticsFrom} onChange={(e)=>setAnalyticsFrom(e.target.value)} className="h-10 rounded-lg border bg-background px-3 font-normal"/></label>
         <label className="grid gap-1 text-sm font-semibold">To<input type="date" value={analyticsTo} onChange={(e)=>setAnalyticsTo(e.target.value)} className="h-10 rounded-lg border bg-background px-3 font-normal"/></label>
-        <Button onClick={()=>void loadAnalytics()} disabled={analyticsLoading}>{analyticsLoading ? "Loading…" : "Check visitors"}</Button>
+        <Button onClick={()=>void loadAnalytics()} disabled={analyticsLoading}>{analyticsLoading ? "Loading…" : "Check analytics"}</Button>
       </div>
-      <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        <article className="rounded-xl border p-4"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Visitors in selected range</p><p className="mt-2 text-3xl font-extrabold">{analyticsRows.reduce((sum,row)=>sum+row.unique_visitors,0)}</p><p className="mt-1 text-xs text-muted-foreground">Daily unique browser/device counts added together.</p></article>
-        <article className="rounded-xl border p-4"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Days selected</p><p className="mt-2 text-3xl font-extrabold">{analyticsRows.length}</p><p className="mt-1 text-xs text-muted-foreground">Only dates with at least one recorded visitor appear below.</p></article>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <article className="rounded-xl border p-4"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Unique visitors</p><p className="mt-2 text-3xl font-extrabold">{analyticsRows.reduce((s,r)=>s+r.unique_visitors,0)}</p></article>
+        <article className="rounded-xl border p-4"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Vercel → Supabase photo fetches</p><p className="mt-2 text-3xl font-extrabold">{analyticsRows.reduce((s,r)=>s+r.photo_origin_fetches,0)}</p><p className="mt-1 text-xs text-muted-foreground">Only genuine photo-route origin executions.</p></article>
+        <article className="rounded-xl border p-4"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Origin photo bytes</p><p className="mt-2 text-3xl font-extrabold">{formatBytes(analyticsRows.reduce((s,r)=>s+r.photo_origin_bytes,0))}</p><p className="mt-1 text-xs text-muted-foreground">Exact photo bytes Supabase returned to Vercel.</p></article>
+        <article className="rounded-xl border p-4"><p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Origin errors</p><p className="mt-2 text-3xl font-extrabold">{analyticsRows.reduce((s,r)=>s+r.photo_origin_errors,0)}</p><p className="mt-1 text-xs text-muted-foreground">Failed Vercel → Supabase photo attempts.</p></article>
       </div>
-      <div className="mt-5 overflow-hidden rounded-xl border">
-        <div className="grid grid-cols-2 bg-muted px-4 py-2 text-xs font-bold uppercase tracking-wide"><span>Date</span><span className="text-right">Unique visitors</span></div>
-        {!analyticsLoaded ? <p className="p-6 text-center text-sm text-muted-foreground">Choose a date or date range, then click Check visitors.</p> : !analyticsRows.length ? <p className="p-6 text-center text-sm text-muted-foreground">No visitor records for this date range.</p> : analyticsRows.map(row => <div key={row.visit_date} className="grid grid-cols-2 border-t px-4 py-3 text-sm"><span>{row.visit_date}</span><strong className="text-right">{row.unique_visitors}</strong></div>)}
+      <div className="mt-5 overflow-x-auto rounded-xl border">
+        <div className="grid min-w-[760px] grid-cols-5 bg-muted px-4 py-2 text-xs font-bold uppercase tracking-wide"><span>Date</span><span className="text-right">Visitors</span><span className="text-right">Origin fetches</span><span className="text-right">Origin bytes</span><span className="text-right">Errors</span></div>
+        {!analyticsLoaded ? <p className="p-6 text-center text-sm text-muted-foreground">Choose a date or date range, then click Check analytics.</p> : analyticsRows.map(row => <div key={row.metric_date} className="grid min-w-[760px] grid-cols-5 border-t px-4 py-3 text-sm"><span>{row.metric_date}</span><strong className="text-right">{row.unique_visitors}</strong><strong className="text-right">{row.photo_origin_fetches}</strong><strong className="text-right">{formatBytes(row.photo_origin_bytes)}</strong><strong className="text-right">{row.photo_origin_errors}</strong></div>)}
       </div>
-      <p className="mt-4 text-xs text-muted-foreground">For your egress test: Supabase Cached Egress for a date ÷ this visitor count = approximate cached egress per visitor. Incognito/private sessions, cleared browser storage, or multiple devices can count as separate visitors.</p>
+      <div className="mt-5 rounded-xl border p-4">
+        <h3 className="font-bold">Cached Egress comparison</h3>
+        <p className="mt-1 text-sm text-muted-foreground">Enter the Supabase Cached Egress shown in your dashboard for ONE selected day. This value stays only in this admin browser and is not written to Supabase.</p>
+        <EgressCalculator rows={analyticsRows} />
+      </div>
+      <div className="mt-4 rounded-xl bg-muted p-4 text-sm">
+        <p className="font-bold">How to read this</p>
+        <p className="mt-1 text-muted-foreground">If Supabase Cached Egress is much larger than “Origin photo bytes”, the difference is not explained by Vercel fetching public pet photos. Visitor tracking remains one tiny write per browser/device per Philippine day. No analytics polling, GPS, IP storage, or Realtime analytics subscription is added.</p>
+      </div>
     </section>}
   </div>
 }
