@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next'
 import { Nunito, Nunito_Sans } from 'next/font/google'
 import './globals.css'
 import { PwaRegister } from '@/components/pwa-register'
+import { PrivateVisitorAnalytics } from '@/components/private-visitor-analytics'
 
 const nunito = Nunito({
   subsets: ['latin'],
@@ -65,6 +66,7 @@ export default function RootLayout({
       <body className="antialiased font-sans">
         {children}
         <PwaRegister />
+        <PrivateVisitorAnalytics />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
