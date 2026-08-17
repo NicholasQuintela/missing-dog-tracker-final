@@ -1,8 +1,6 @@
 import { NextRequest } from "next/server"
 import { canonicalizePhotoPath, getPublicPhoto, recordPhotoRouteExecution } from "@/lib/photo-delivery-server"
 
-// Browser cache: 30 days. Vercel CDN: 1 year.
-// UUID/versioned Storage objects are immutable. New uploads get new paths.
 const BROWSER_TTL = 60 * 60 * 24 * 30
 const VERCEL_CDN_TTL = 60 * 60 * 24 * 365
 
@@ -25,16 +23,14 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Layer 1: browser/PWA cache.
-    // Layer 2: Vercel CDN response cache.
-    // Layer 3: canonical Next.js 16 Runtime Cache keyed ONLY by canonicalPath.
-    // Layer 4: Supabase, reached only on a true canonical Runtime Cache miss.
+    // Layer 1: browser/PWA cache
+    // Layer 2: Vercel CDN
+    // Layer 3: canonical Next.js Data Cache
+    // Layer 4: private Cloudflare R2
+    // Layer 5: Supabase fallback only when R2 is missing/unavailable
     const photo = await getPublicPhoto(canonicalPath)
     const body = Buffer.from(photo.bodyBase64, "base64")
 
-    // If the cached object's origin timestamp is only a few seconds old, this
-    // invocation populated the Runtime Cache. Otherwise the CDN missed but the
-    // Runtime Cache rescued the request without touching Supabase.
     const originAgeMs = Date.now() - new Date(photo.originFetchedAt).getTime()
     const dataCacheHit = Number.isFinite(originAgeMs) && originAgeMs > 10_000
 
@@ -48,6 +44,7 @@ export async function GET(request: NextRequest) {
     console.log(
       "[PETALERT_CACHE_ROUTE]",
       dataCacheHit ? "DATA_HIT" : "DATA_MISS",
+      photo.origin.toUpperCase(),
       canonicalPath,
       process.env.VERCEL_REGION || "unknown",
       photo.originFetchedAt,
@@ -61,9 +58,10 @@ export async function GET(request: NextRequest) {
         "Cache-Control": `public, max-age=${BROWSER_TTL}, immutable`,
         "CDN-Cache-Control": `public, max-age=${VERCEL_CDN_TTL}`,
         "Vercel-CDN-Cache-Control": `public, max-age=${VERCEL_CDN_TTL}`,
-        "Vercel-Cache-Tag": "petalert-public-photos-v6.4",
-        "X-PetAlert-Cache-Architecture": "canonical-browser30d+vercel365d+runtime-max+diagnostics-v6.4",
+        "Vercel-Cache-Tag": "petalert-public-photos-r2-v6.3.1",
+        "X-PetAlert-Cache-Architecture": "browser30d+vercel365d+data+R2-first+supabase-fallback-v6.3.1",
         "X-PetAlert-Data-Cache": dataCacheHit ? "HIT" : "MISS",
+        "X-PetAlert-Photo-Origin": photo.origin,
         "X-PetAlert-Origin-Fetched-At": photo.originFetchedAt,
         "X-PetAlert-Function-Region": process.env.VERCEL_REGION || "unknown",
       },

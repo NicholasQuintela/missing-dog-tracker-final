@@ -1,35 +1,27 @@
-import { cacheLife, cacheTag } from "next/cache"
+import { createHash, createHmac } from "node:crypto"
+import { unstable_cache } from "next/cache"
 
 const SUPABASE_BUCKET = "dog-photos"
+const R2_BUCKET = process.env.R2_BUCKET || "dog-photos"
 
-// v6.1: every logical Storage object gets ONE canonical server-cache identity.
-// This protects Supabase even if equivalent browser/CDN URLs differ in encoding.
-const PHOTO_CACHE_TAG = "petalert-public-photos-v6.4"
+// Operation R2: one canonical object path is shared by browser/CDN/Data Cache,
+// R2, and the Supabase fallback. Old and new URL encodings therefore cannot
+// create different origin identities for the same photo.
+const PHOTO_CACHE_NAMESPACE = "petalert-photo-object-r2-v6.3.1"
+const PHOTO_CACHE_TAG = "petalert-public-photos-r2-v6.3.1"
 
 export type DeliveredPhoto = {
   bodyBase64: string
   contentType: string
   bytes: number
   originFetchedAt: string
+  origin: "r2" | "supabase"
 }
 
-/**
- * Convert every equivalent representation of a Storage object path into one
- * canonical path. Important examples that collapse to the same identity:
- *   reports/a/photo.webp
- *   reports%2Fa%2Fphoto.webp
- *   reports%252Fa%252Fphoto.webp
- *
- * Storage paths remain case-sensitive. We only normalize encoding, slash
- * structure and Unicode representation; we never lowercase object names.
- */
 export function canonicalizePhotoPath(input: string) {
   if (!input || input.length > 4096) return null
 
   let value = input
-
-  // URLSearchParams already decodes one layer. A legacy caller can still hand
-  // us another encoded layer, so collapse a few safe layers until stable.
   for (let i = 0; i < 3; i += 1) {
     const decoded = decodeSafe(value)
     if (decoded === value) break
@@ -37,7 +29,6 @@ export function canonicalizePhotoPath(input: string) {
   }
 
   value = value.normalize("NFC")
-
   if (!value || value.length > 1024) return null
   if (value.startsWith("/") || value.endsWith("/") || value.includes("\\")) return null
 
@@ -59,6 +50,121 @@ function encodeStoragePath(canonicalPath: string) {
   return canonicalPath.split("/").map(encodeURIComponent).join("/")
 }
 
+function sha256Hex(value: string | Buffer) {
+  return createHash("sha256").update(value).digest("hex")
+}
+
+function hmac(key: Buffer | string, value: string) {
+  return createHmac("sha256", key).update(value).digest()
+}
+
+function r2Configured() {
+  return Boolean(
+    process.env.R2_ENDPOINT &&
+      process.env.R2_ACCESS_KEY_ID &&
+      process.env.R2_SECRET_ACCESS_KEY,
+  )
+}
+
+/**
+ * Private Cloudflare R2 GET using its S3-compatible API.
+ * Native Node crypto is used so Operation R2 adds no new npm dependency.
+ */
+async function fetchPhotoFromR2(canonicalPath: string): Promise<DeliveredPhoto | null> {
+  const endpoint = process.env.R2_ENDPOINT
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY
+
+  if (!endpoint || !accessKeyId || !secretAccessKey) return null
+
+  const base = new URL(endpoint)
+  const encodedPath = encodeStoragePath(canonicalPath)
+  const bucket = encodeURIComponent(R2_BUCKET)
+  const canonicalUri = `${base.pathname.replace(/\/$/, "")}/${bucket}/${encodedPath}`.replace(/\/+/g, "/")
+  const requestUrl = new URL(base.toString())
+  requestUrl.pathname = canonicalUri
+  requestUrl.search = ""
+
+  const now = new Date()
+  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "")
+  const dateStamp = amzDate.slice(0, 8)
+  const region = "auto"
+  const service = "s3"
+  const payloadHash = sha256Hex("")
+  const host = requestUrl.host
+
+  const canonicalHeaders =
+    `host:${host}\n` +
+    `x-amz-content-sha256:${payloadHash}\n` +
+    `x-amz-date:${amzDate}\n`
+  const signedHeaders = "host;x-amz-content-sha256;x-amz-date"
+  const canonicalRequest = [
+    "GET",
+    canonicalUri,
+    "",
+    canonicalHeaders,
+    signedHeaders,
+    payloadHash,
+  ].join("\n")
+
+  const algorithm = "AWS4-HMAC-SHA256"
+  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`
+  const stringToSign = [
+    algorithm,
+    amzDate,
+    credentialScope,
+    sha256Hex(canonicalRequest),
+  ].join("\n")
+
+  const kDate = hmac(`AWS4${secretAccessKey}`, dateStamp)
+  const kRegion = hmac(kDate, region)
+  const kService = hmac(kRegion, service)
+  const kSigning = hmac(kService, "aws4_request")
+  const signature = createHmac("sha256", kSigning).update(stringToSign).digest("hex")
+
+  const authorization =
+    `${algorithm} Credential=${accessKeyId}/${credentialScope}, ` +
+    `SignedHeaders=${signedHeaders}, Signature=${signature}`
+
+  try {
+    const response = await fetch(requestUrl, {
+      method: "GET",
+      cache: "no-store",
+      headers: {
+        Authorization: authorization,
+        "x-amz-content-sha256": payloadHash,
+        "x-amz-date": amzDate,
+      },
+    })
+
+    if (response.status === 404) {
+      console.log("[PETALERT_R2_MISS]", canonicalPath)
+      return null
+    }
+
+    if (!response.ok) {
+      console.warn("[PETALERT_R2_ERROR]", canonicalPath, response.status)
+      return null
+    }
+
+    const buffer = await response.arrayBuffer()
+    const originFetchedAt = new Date().toISOString()
+
+    console.log("[PETALERT_R2_HIT]", canonicalPath, buffer.byteLength)
+
+    return {
+      bodyBase64: Buffer.from(buffer).toString("base64"),
+      contentType: response.headers.get("content-type") || "image/webp",
+      bytes: buffer.byteLength,
+      originFetchedAt,
+      origin: "r2",
+    }
+  } catch (error) {
+    console.warn("[PETALERT_R2_ERROR]", canonicalPath, error)
+    return null
+  }
+}
+
 async function recordOriginFetch(base: string, photoPath: string, bytes: number, ok: boolean) {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!serviceKey) return
@@ -76,7 +182,7 @@ async function recordOriginFetch(base: string, photoPath: string, bytes: number,
       body: JSON.stringify({ p_path: photoPath, p_bytes: bytes, p_ok: ok }),
     })
   } catch {
-    // Diagnostics are best-effort and must never block photo delivery.
+    // Diagnostics must never block photo delivery.
   }
 }
 
@@ -110,25 +216,15 @@ export async function recordPhotoRouteExecution(
       }),
     })
   } catch {
-    // Cache diagnostics are best-effort and must never block photo delivery.
+    // Cache diagnostics are best-effort.
   }
 }
 
-/**
- * The ONLY function allowed to download a public pet photo from Supabase.
- * It receives exactly one argument: the canonical Storage object path.
- * That same canonical path is also the only variable part of the Data Cache
- * key, so different URL encodings can no longer create different origin keys.
- */
-async function fetchCanonicalPhotoFromOrigin(canonicalPath: string): Promise<DeliveredPhoto> {
+async function fetchPhotoFromSupabase(canonicalPath: string): Promise<DeliveredPhoto> {
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL
   if (!base) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL")
 
-  console.log(
-    "[PETALERT_ORIGIN_EXECUTED]",
-    canonicalPath,
-    new Date().toISOString(),
-  )
+  console.log("[PETALERT_SUPABASE_ORIGIN_EXECUTED]", canonicalPath, new Date().toISOString())
 
   const encodedPath = encodeStoragePath(canonicalPath)
   const response = await fetch(
@@ -151,19 +247,34 @@ async function fetchCanonicalPhotoFromOrigin(canonicalPath: string): Promise<Del
     contentType: response.headers.get("content-type") || "image/webp",
     bytes,
     originFetchedAt,
+    origin: "supabase",
   }
 }
 
-// v6.4: one authoritative Runtime Cache entry per canonical Storage path.
-// Next.js 16 `use cache` keys the result by the function arguments, so the
-// canonicalPath remains the photo identity. `max` is appropriate because
-// uploaded photo object paths are immutable: replacements get a new UUID/path.
-async function getCachedCanonicalPhoto(canonicalPath: string): Promise<DeliveredPhoto> {
-  "use cache"
-  cacheLife("max")
-  cacheTag(PHOTO_CACHE_TAG)
-  return fetchCanonicalPhotoFromOrigin(canonicalPath)
+/**
+ * Operation R2 origin order:
+ *   1) private Cloudflare R2 dog-photos
+ *   2) Supabase dog-photos fallback
+ *
+ * Supabase remains untouched, so any object missing from R2 still works.
+ */
+async function fetchCanonicalPhotoFromOrigin(canonicalPath: string): Promise<DeliveredPhoto> {
+  if (r2Configured()) {
+    const r2Photo = await fetchPhotoFromR2(canonicalPath)
+    if (r2Photo) return r2Photo
+  }
+
+  return fetchPhotoFromSupabase(canonicalPath)
 }
+
+const getCachedCanonicalPhoto = unstable_cache(
+  fetchCanonicalPhotoFromOrigin,
+  [PHOTO_CACHE_NAMESPACE],
+  {
+    revalidate: false,
+    tags: [PHOTO_CACHE_TAG],
+  },
+)
 
 export async function getPublicPhoto(canonicalPath: string) {
   return getCachedCanonicalPhoto(canonicalPath)
