@@ -2,7 +2,7 @@
  * Focus: aggressively reuse public pet photos and immutable app assets.
  * Dynamic/private Supabase REST data is intentionally NOT cached.
  */
-const VERSION = "pet-alert-ph-pc-v3-strict";
+const VERSION = "pet-alert-ph-pc-v6.1-canonical-cache";
 const STATIC_CACHE = `${VERSION}-static`;
 const MEDIA_CACHE = `${VERSION}-media`;
 const MEDIA_LIMIT = 500;
@@ -57,6 +57,43 @@ function legacySupabasePhotoPath(url) {
   }
 }
 
+function decodeSafe(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function canonicalPhotoPath(input) {
+  if (!input) return null;
+  let value = input;
+  for (let i = 0; i < 3; i += 1) {
+    const decoded = decodeSafe(value);
+    if (decoded === value) break;
+    value = decoded;
+  }
+  if (value.normalize) value = value.normalize("NFC");
+  if (!value || value.length > 1024) return null;
+  if (value.startsWith("/") || value.endsWith("/") || value.includes("\\")) return null;
+  const segments = value.split("/");
+  if (segments.some((part) => !part || part === "." || part === "..")) return null;
+  return segments.join("/");
+}
+
+function canonicalProxyRequest(path, originalRequest) {
+  const canonicalPath = canonicalPhotoPath(path);
+  if (!canonicalPath) return null;
+  const proxyUrl = new URL("/api/public/photo", self.location.origin);
+  proxyUrl.searchParams.set("path", canonicalPath);
+  return new Request(proxyUrl.toString(), {
+    method: "GET",
+    headers: originalRequest.headers,
+    credentials: "same-origin",
+    mode: "same-origin",
+  });
+}
+
 function isVercelPhotoProxy(url) {
   return url.origin === self.location.origin && url.pathname === "/api/public/photo";
 }
@@ -98,22 +135,22 @@ self.addEventListener("fetch", (event) => {
   // Storage object directly, even if old client data still contains that URL.
   const legacyPath = legacySupabasePhotoPath(url);
   if (legacyPath) {
-    const proxyUrl = new URL("/api/public/photo", self.location.origin);
-    proxyUrl.searchParams.set("path", legacyPath);
-    const proxyRequest = new Request(proxyUrl.toString(), {
-      method: "GET",
-      headers: request.headers,
-      credentials: "same-origin",
-      mode: "same-origin",
-    });
-    event.respondWith(cacheFirst(proxyRequest, MEDIA_CACHE, MEDIA_LIMIT));
-    return;
+    const proxyRequest = canonicalProxyRequest(legacyPath, request);
+    if (proxyRequest) {
+      event.respondWith(cacheFirst(proxyRequest, MEDIA_CACHE, MEDIA_LIMIT));
+      return;
+    }
   }
 
-  // Normal public-photo path: local media cache first, then Vercel.
+  // Normal public-photo path: normalize the request BEFORE looking in the
+  // browser media cache. Equivalent encoded URLs therefore share one local
+  // cache key as well as one server Data Cache key.
   if (isVercelPhotoProxy(url)) {
-    event.respondWith(cacheFirst(request, MEDIA_CACHE, MEDIA_LIMIT));
-    return;
+    const proxyRequest = canonicalProxyRequest(url.searchParams.get("path"), request);
+    if (proxyRequest) {
+      event.respondWith(cacheFirst(proxyRequest, MEDIA_CACHE, MEDIA_LIMIT));
+      return;
+    }
   }
 
   // Cache hashed Next.js assets/icons locally.
