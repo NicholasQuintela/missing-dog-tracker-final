@@ -9,7 +9,7 @@ import { CaptchaWidget } from "@/components/captcha-widget"
 import { IS_DESKTOP_BUILD } from "@/lib/desktop"
 import { LocationPicker, type AddressFields } from "@/components/location-picker"
 import type { MissingDog, Sighting } from "@/lib/types"
-import { optimizeImageForUpload } from "@/lib/image-optimization"
+import { MAX_IMAGE_INPUT_BYTES, optimizeImageForUpload } from "@/lib/image-optimization"
 
 type Props = {
   open: boolean
@@ -21,7 +21,6 @@ type Props = {
 }
 
 const EMPTY_ADDRESS: AddressFields = { region: "", city: "", barangay: "", street: "" }
-const MAX_PHOTO_BYTES = 5 * 1024 * 1024
 const SAFE_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"])
 const SAFE_IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp"])
 
@@ -108,9 +107,9 @@ export function SightingDialog({
       return
     }
 
-    if (file.size > MAX_PHOTO_BYTES) {
+    if (file.size > MAX_IMAGE_INPUT_BYTES) {
       clearPhoto()
-      setError("Please choose a photo smaller than 5 MB.")
+      setError("Photo must be 1 MB or smaller.")
       return
     }
 
@@ -311,7 +310,7 @@ export function SightingDialog({
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-foreground">Choose a photo</p>
-                  <p className="text-xs text-muted-foreground">Maximum file size: 5 MB</p>
+                  <p className="text-xs text-muted-foreground">Maximum file size: 1 MB</p>
                 </div>
                 <input
                   ref={fileInputRef}

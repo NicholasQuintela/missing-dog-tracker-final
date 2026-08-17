@@ -7,7 +7,7 @@ import { Modal, Field, inputClass } from "@/components/modal"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import type { MissingDog } from "@/lib/types"
-import { optimizeImageForUpload } from "@/lib/image-optimization"
+import { MAX_IMAGE_INPUT_BYTES, optimizeImageForUpload } from "@/lib/image-optimization"
 
 type Props = {
   open: boolean
@@ -26,7 +26,20 @@ export function FoundDialog({ open, onClose, dog, onFound }: Props) {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
 
   function reset() { setName(""); setNote(""); setPhotoFile(null); setPhotoPreview(null); setError(null) }
-  function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) { const file=e.target.files?.[0]; if(!file)return; setPhotoFile(file); setPhotoPreview(URL.createObjectURL(file)) }
+  function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setError(null)
+    if (file.size > MAX_IMAGE_INPUT_BYTES) {
+      e.target.value = ""
+      setPhotoFile(null)
+      setPhotoPreview(null)
+      setError("Photo must be 1 MB or smaller.")
+      return
+    }
+    setPhotoFile(file)
+    setPhotoPreview(URL.createObjectURL(file))
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

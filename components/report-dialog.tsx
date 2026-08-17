@@ -9,7 +9,7 @@ import { CaptchaWidget } from "@/components/captcha-widget"
 import { LocationPicker, type AddressFields } from "@/components/location-picker"
 import type { MissingDog } from "@/lib/types"
 import { REWARD_CURRENCIES } from "@/lib/currency"
-import { optimizeImageForUpload } from "@/lib/image-optimization"
+import { MAX_IMAGE_INPUT_BYTES, optimizeImageForUpload } from "@/lib/image-optimization"
 
 
 type Props = {
@@ -63,6 +63,14 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
   function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    setError(null)
+    if (file.size > MAX_IMAGE_INPUT_BYTES) {
+      e.target.value = ""
+      setPhotoFile(null)
+      setPhotoPreview(null)
+      setError("Photo must be 1 MB or smaller.")
+      return
+    }
     setPhotoFile(file)
     setPhotoPreview(URL.createObjectURL(file))
   }
