@@ -1,11 +1,10 @@
-import { unstable_cache } from "next/cache"
+import { cacheLife, cacheTag } from "next/cache"
 
 const SUPABASE_BUCKET = "dog-photos"
 
 // v6.1: every logical Storage object gets ONE canonical server-cache identity.
 // This protects Supabase even if equivalent browser/CDN URLs differ in encoding.
-const PHOTO_CACHE_NAMESPACE = "petalert-photo-object-v6.3-diagnostics"
-const PHOTO_CACHE_TAG = "petalert-public-photos-v6.3"
+const PHOTO_CACHE_TAG = "petalert-public-photos-v6.4"
 
 export type DeliveredPhoto = {
   bodyBase64: string
@@ -155,18 +154,16 @@ async function fetchCanonicalPhotoFromOrigin(canonicalPath: string): Promise<Del
   }
 }
 
-// One authoritative server-side photo cache.
-// `unstable_cache` includes function arguments in its key. Because this cached
-// function now takes ONLY canonicalPath, one Storage object has one Data Cache
-// identity regardless of how a client encoded the URL that reached the route.
-const getCachedCanonicalPhoto = unstable_cache(
-  fetchCanonicalPhotoFromOrigin,
-  [PHOTO_CACHE_NAMESPACE],
-  {
-    revalidate: false,
-    tags: [PHOTO_CACHE_TAG],
-  },
-)
+// v6.4: one authoritative Runtime Cache entry per canonical Storage path.
+// Next.js 16 `use cache` keys the result by the function arguments, so the
+// canonicalPath remains the photo identity. `max` is appropriate because
+// uploaded photo object paths are immutable: replacements get a new UUID/path.
+async function getCachedCanonicalPhoto(canonicalPath: string): Promise<DeliveredPhoto> {
+  "use cache"
+  cacheLife("max")
+  cacheTag(PHOTO_CACHE_TAG)
+  return fetchCanonicalPhotoFromOrigin(canonicalPath)
+}
 
 export async function getPublicPhoto(canonicalPath: string) {
   return getCachedCanonicalPhoto(canonicalPath)

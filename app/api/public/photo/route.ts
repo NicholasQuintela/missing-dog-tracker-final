@@ -27,14 +27,14 @@ export async function GET(request: NextRequest) {
   try {
     // Layer 1: browser/PWA cache.
     // Layer 2: Vercel CDN response cache.
-    // Layer 3: canonical Next.js Data Cache keyed ONLY by canonicalPath.
-    // Layer 4: Supabase, reached only on a true canonical Data Cache miss.
+    // Layer 3: canonical Next.js 16 Runtime Cache keyed ONLY by canonicalPath.
+    // Layer 4: Supabase, reached only on a true canonical Runtime Cache miss.
     const photo = await getPublicPhoto(canonicalPath)
     const body = Buffer.from(photo.bodyBase64, "base64")
 
     // If the cached object's origin timestamp is only a few seconds old, this
-    // invocation populated the Data Cache. Otherwise the CDN missed but the
-    // Data Cache rescued the request without touching Supabase.
+    // invocation populated the Runtime Cache. Otherwise the CDN missed but the
+    // Runtime Cache rescued the request without touching Supabase.
     const originAgeMs = Date.now() - new Date(photo.originFetchedAt).getTime()
     const dataCacheHit = Number.isFinite(originAgeMs) && originAgeMs > 10_000
 
@@ -61,8 +61,8 @@ export async function GET(request: NextRequest) {
         "Cache-Control": `public, max-age=${BROWSER_TTL}, immutable`,
         "CDN-Cache-Control": `public, max-age=${VERCEL_CDN_TTL}`,
         "Vercel-CDN-Cache-Control": `public, max-age=${VERCEL_CDN_TTL}`,
-        "Vercel-Cache-Tag": "petalert-public-photos-v6.3",
-        "X-PetAlert-Cache-Architecture": "canonical-browser30d+vercel365d+data-indefinite+diagnostics-v6.3",
+        "Vercel-Cache-Tag": "petalert-public-photos-v6.4",
+        "X-PetAlert-Cache-Architecture": "canonical-browser30d+vercel365d+runtime-max+diagnostics-v6.4",
         "X-PetAlert-Data-Cache": dataCacheHit ? "HIT" : "MISS",
         "X-PetAlert-Origin-Fetched-At": photo.originFetchedAt,
         "X-PetAlert-Function-Region": process.env.VERCEL_REGION || "unknown",
