@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server"
-import { canonicalizePhotoPath, getPublicPhoto } from "@/lib/photo-delivery-server"
+import { canonicalizePhotoPath, getPublicPhoto, recordPhotoRouteExecution } from "@/lib/photo-delivery-server"
 
 // Browser cache: 30 days. Vercel CDN: 1 year.
 // UUID/versioned Storage objects are immutable. New uploads get new paths.
@@ -32,6 +32,27 @@ export async function GET(request: NextRequest) {
     const photo = await getPublicPhoto(canonicalPath)
     const body = Buffer.from(photo.bodyBase64, "base64")
 
+    // If the cached object's origin timestamp is only a few seconds old, this
+    // invocation populated the Data Cache. Otherwise the CDN missed but the
+    // Data Cache rescued the request without touching Supabase.
+    const originAgeMs = Date.now() - new Date(photo.originFetchedAt).getTime()
+    const dataCacheHit = Number.isFinite(originAgeMs) && originAgeMs > 10_000
+
+    await recordPhotoRouteExecution(
+      canonicalPath,
+      photo.bytes,
+      photo.originFetchedAt,
+      dataCacheHit,
+    )
+
+    console.log(
+      "[PETALERT_CACHE_ROUTE]",
+      dataCacheHit ? "DATA_HIT" : "DATA_MISS",
+      canonicalPath,
+      process.env.VERCEL_REGION || "unknown",
+      photo.originFetchedAt,
+    )
+
     return new Response(body, {
       status: 200,
       headers: {
@@ -40,8 +61,11 @@ export async function GET(request: NextRequest) {
         "Cache-Control": `public, max-age=${BROWSER_TTL}, immutable`,
         "CDN-Cache-Control": `public, max-age=${VERCEL_CDN_TTL}`,
         "Vercel-CDN-Cache-Control": `public, max-age=${VERCEL_CDN_TTL}`,
-        "Vercel-Cache-Tag": "petalert-public-photos-v6.1",
-        "X-PetAlert-Cache-Architecture": "canonical-browser30d+vercel365d+data-indefinite-v6.1",
+        "Vercel-Cache-Tag": "petalert-public-photos-v6.3",
+        "X-PetAlert-Cache-Architecture": "canonical-browser30d+vercel365d+data-indefinite+diagnostics-v6.3",
+        "X-PetAlert-Data-Cache": dataCacheHit ? "HIT" : "MISS",
+        "X-PetAlert-Origin-Fetched-At": photo.originFetchedAt,
+        "X-PetAlert-Function-Region": process.env.VERCEL_REGION || "unknown",
       },
     })
   } catch (error) {

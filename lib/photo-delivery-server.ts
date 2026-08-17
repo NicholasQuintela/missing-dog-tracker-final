@@ -4,13 +4,14 @@ const SUPABASE_BUCKET = "dog-photos"
 
 // v6.1: every logical Storage object gets ONE canonical server-cache identity.
 // This protects Supabase even if equivalent browser/CDN URLs differ in encoding.
-const PHOTO_CACHE_NAMESPACE = "petalert-photo-object-v6.1-canonical"
-const PHOTO_CACHE_TAG = "petalert-public-photos-v6.1"
+const PHOTO_CACHE_NAMESPACE = "petalert-photo-object-v6.3-diagnostics"
+const PHOTO_CACHE_TAG = "petalert-public-photos-v6.3"
 
 export type DeliveredPhoto = {
   bodyBase64: string
   contentType: string
   bytes: number
+  originFetchedAt: string
 }
 
 /**
@@ -80,6 +81,40 @@ async function recordOriginFetch(base: string, photoPath: string, bytes: number,
   }
 }
 
+export async function recordPhotoRouteExecution(
+  photoPath: string,
+  bytes: number,
+  originFetchedAt: string,
+  dataCacheHit: boolean,
+) {
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!base || !serviceKey) return
+
+  try {
+    await fetch(`${base}/rest/v1/rpc/record_pet_alert_photo_route_execution`, {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({
+        p_path: photoPath,
+        p_bytes: Math.max(0, bytes),
+        p_origin_fetched_at: originFetchedAt,
+        p_data_cache_hit: dataCacheHit,
+        p_vercel_region: process.env.VERCEL_REGION || null,
+        p_deployment_id: process.env.VERCEL_DEPLOYMENT_ID || null,
+      }),
+    })
+  } catch {
+    // Cache diagnostics are best-effort and must never block photo delivery.
+  }
+}
+
 /**
  * The ONLY function allowed to download a public pet photo from Supabase.
  * It receives exactly one argument: the canonical Storage object path.
@@ -109,12 +144,14 @@ async function fetchCanonicalPhotoFromOrigin(canonicalPath: string): Promise<Del
 
   const buffer = await response.arrayBuffer()
   const bytes = buffer.byteLength
+  const originFetchedAt = new Date().toISOString()
   await recordOriginFetch(base, canonicalPath, bytes, true)
 
   return {
     bodyBase64: Buffer.from(buffer).toString("base64"),
     contentType: response.headers.get("content-type") || "image/webp",
     bytes,
+    originFetchedAt,
   }
 }
 

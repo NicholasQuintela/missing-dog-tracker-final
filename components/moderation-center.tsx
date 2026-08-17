@@ -37,6 +37,16 @@ type BugItem = {
 type Stats = { users:number; reports:number; activeReports:number; solvedReports:number; sightings:number; volunteers:number; pendingAbuse:number; openBugs:number }
 type AnalyticsRow = { metric_date: string; unique_visitors: number; page_loads: number; sessions: number; photo_origin_fetches: number; photo_origin_bytes: number; photo_origin_errors: number }
 type OriginFetchDetail = { occurred_at: string; photo_path: string; bytes: number; ok: boolean }
+type CacheDiagnostic = {
+  occurred_at: string
+  photo_path: string
+  bytes: number
+  data_cache_hit: boolean
+  origin_fetched_at: string
+  cache_age_seconds: number
+  vercel_region: string | null
+  deployment_id: string | null
+}
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
@@ -74,6 +84,7 @@ export function ModerationCenter({ initialItems, initialBugs, stats, role }: { i
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
   const [analyticsLoaded, setAnalyticsLoaded] = useState(false)
   const [originDetails, setOriginDetails] = useState<OriginFetchDetail[]>([])
+  const [cacheDiagnostics, setCacheDiagnostics] = useState<CacheDiagnostic[]>([])
 
   async function loadAnalytics() {
     if (!analyticsFrom || !analyticsTo || analyticsFrom > analyticsTo) {
@@ -81,9 +92,10 @@ export function ModerationCenter({ initialItems, initialBugs, stats, role }: { i
       return
     }
     setAnalyticsLoading(true)
-    const [result, detailsResult] = await Promise.all([
+    const [result, detailsResult, cacheResult] = await Promise.all([
       supabase.rpc("get_pet_alert_egress_analytics", { p_from: analyticsFrom, p_to: analyticsTo }),
       supabase.rpc("get_pet_alert_origin_fetch_details", { p_from: analyticsFrom, p_to: analyticsTo, p_limit: 100 }),
+      supabase.rpc("get_pet_alert_photo_cache_diagnostics", { p_from: analyticsFrom, p_to: analyticsTo, p_limit: 100 }),
     ])
     if (result.error) alert(result.error.message)
     else setAnalyticsRows(((result.data || []) as { metric_date: string; unique_visitors: number | string; page_loads: number | string; sessions: number | string; photo_origin_fetches: number | string; photo_origin_bytes: number | string; photo_origin_errors: number | string }[]).map(row => ({
@@ -104,6 +116,21 @@ export function ModerationCenter({ initialItems, initialBugs, stats, role }: { i
         photo_path: row.photo_path,
         bytes: Number(row.bytes || 0),
         ok: Boolean(row.ok),
+      })))
+    }
+    if (cacheResult.error) {
+      console.warn("Could not load cache diagnostics", cacheResult.error.message)
+      setCacheDiagnostics([])
+    } else {
+      setCacheDiagnostics(((cacheResult.data || []) as { occurred_at: string; photo_path: string; bytes: number | string; data_cache_hit: boolean; origin_fetched_at: string; cache_age_seconds: number | string; vercel_region: string | null; deployment_id: string | null }[]).map(row => ({
+        occurred_at: row.occurred_at,
+        photo_path: row.photo_path,
+        bytes: Number(row.bytes || 0),
+        data_cache_hit: Boolean(row.data_cache_hit),
+        origin_fetched_at: row.origin_fetched_at,
+        cache_age_seconds: Number(row.cache_age_seconds || 0),
+        vercel_region: row.vercel_region,
+        deployment_id: row.deployment_id,
       })))
     }
     setAnalyticsLoaded(true)
@@ -199,7 +226,7 @@ export function ModerationCenter({ initialItems, initialBugs, stats, role }: { i
         </article>)}
       </div>
     </section> : <section className="rounded-2xl border bg-card p-4 sm:p-6">
-      <div><h2 className="flex items-center gap-2 text-xl font-bold"><BarChart3 className="size-5"/>Egress Investigation Dashboard</h2><p className="text-sm text-muted-foreground">Private diagnostics for Operation Vercel CDN Strict. Heavy metrics are recorded only when Vercel genuinely fetches a pet photo from Supabase.</p></div>
+      <div><h2 className="flex items-center gap-2 text-xl font-bold"><BarChart3 className="size-5"/>Egress Investigation Dashboard</h2><p className="text-sm text-muted-foreground">Private diagnostics for Operation Vercel CDN Strict. v6.3 also records when the CDN falls through to the photo route and whether the Next.js Data Cache rescues the request.</p></div>
       <div className="mt-5 flex flex-wrap items-end gap-3">
         <label className="grid gap-1 text-sm font-semibold">From<input type="date" value={analyticsFrom} onChange={(e)=>setAnalyticsFrom(e.target.value)} className="h-10 rounded-lg border bg-background px-3 font-normal"/></label>
         <label className="grid gap-1 text-sm font-semibold">To<input type="date" value={analyticsTo} onChange={(e)=>setAnalyticsTo(e.target.value)} className="h-10 rounded-lg border bg-background px-3 font-normal"/></label>
@@ -216,6 +243,21 @@ export function ModerationCenter({ initialItems, initialBugs, stats, role }: { i
       <div className="mt-5 overflow-x-auto rounded-xl border">
         <div className="grid min-w-[980px] grid-cols-7 bg-muted px-4 py-2 text-xs font-bold uppercase tracking-wide"><span>Date</span><span className="text-right">Visitors</span><span className="text-right">Loads</span><span className="text-right">Sessions</span><span className="text-right">Origin fetches</span><span className="text-right">Origin bytes</span><span className="text-right">Errors</span></div>
         {!analyticsLoaded ? <p className="p-6 text-center text-sm text-muted-foreground">Choose a date or date range, then click Check analytics.</p> : analyticsRows.map(row => <div key={row.metric_date} className="grid min-w-[980px] grid-cols-7 border-t px-4 py-3 text-sm"><span>{row.metric_date}</span><strong className="text-right">{row.unique_visitors}</strong><strong className="text-right">{row.page_loads}</strong><strong className="text-right">{row.sessions}</strong><strong className="text-right">{row.photo_origin_fetches}</strong><strong className="text-right">{formatBytes(row.photo_origin_bytes)}</strong><strong className="text-right">{row.photo_origin_errors}</strong></div>)}
+      </div>
+      <div className="mt-5 rounded-xl border">
+        <div className="border-b bg-muted px-4 py-3">
+          <h3 className="font-bold">Photo cache layer diagnostics</h3>
+          <p className="mt-1 text-xs text-muted-foreground">Every row means the Vercel CDN did not directly serve that photo, so the photo route executed. Data HIT means the Next.js server cache rescued it without a new Supabase photo download. Data MISS means the server cache was cold and Supabase origin was required.</p>
+        </div>
+        <div className="grid gap-3 border-b p-4 sm:grid-cols-3">
+          <article className="rounded-lg border p-3"><p className="text-xs font-bold uppercase text-muted-foreground">CDN misses / route runs</p><p className="mt-1 text-2xl font-extrabold">{cacheDiagnostics.length}</p></article>
+          <article className="rounded-lg border p-3"><p className="text-xs font-bold uppercase text-muted-foreground">Data cache rescues</p><p className="mt-1 text-2xl font-extrabold text-emerald-600">{cacheDiagnostics.filter(row=>row.data_cache_hit).length}</p></article>
+          <article className="rounded-lg border p-3"><p className="text-xs font-bold uppercase text-muted-foreground">Data cache misses</p><p className="mt-1 text-2xl font-extrabold text-destructive">{cacheDiagnostics.filter(row=>!row.data_cache_hit).length}</p></article>
+        </div>
+        <div className="overflow-x-auto">
+          <div className="grid min-w-[1100px] grid-cols-[170px_1fr_120px_120px_110px_110px_160px] bg-muted/60 px-4 py-2 text-xs font-bold uppercase tracking-wide"><span>Time (PH)</span><span>Storage object</span><span>CDN</span><span>Data cache</span><span>Cache age</span><span>Region</span><span>Deployment</span></div>
+          {!analyticsLoaded ? <p className="p-6 text-center text-sm text-muted-foreground">Choose a date or date range, then click Check analytics.</p> : !cacheDiagnostics.length ? <p className="p-6 text-center text-sm text-muted-foreground">No photo-route cache diagnostics recorded for this range yet.</p> : cacheDiagnostics.map((row,index)=><div key={`${row.occurred_at}-${row.photo_path}-${index}`} className="grid min-w-[1100px] grid-cols-[170px_1fr_120px_120px_110px_110px_160px] border-t px-4 py-3 text-sm"><span>{new Date(row.occurred_at).toLocaleString("en-PH", { timeZone:"Asia/Manila", month:"short", day:"2-digit", hour:"2-digit", minute:"2-digit", second:"2-digit" })}</span><span className="truncate font-mono text-xs" title={row.photo_path}>{row.photo_path}</span><strong className="text-amber-600">MISS → route</strong><strong className={row.data_cache_hit ? "text-emerald-600" : "text-destructive"}>{row.data_cache_hit ? "HIT / rescued" : "MISS / origin"}</strong><span>{row.cache_age_seconds < 60 ? `${row.cache_age_seconds}s` : row.cache_age_seconds < 3600 ? `${Math.floor(row.cache_age_seconds/60)}m ${row.cache_age_seconds%60}s` : `${Math.floor(row.cache_age_seconds/3600)}h ${Math.floor((row.cache_age_seconds%3600)/60)}m`}</span><span className="font-mono text-xs">{row.vercel_region || "unknown"}</span><span className="truncate font-mono text-xs" title={row.deployment_id || "unknown"}>{row.deployment_id ? row.deployment_id.replace(/^dpl_/, "").slice(0,12) : "unknown"}</span></div>)}
+        </div>
       </div>
       <div className="mt-5 overflow-x-auto rounded-xl border">
         <div className="border-b bg-muted px-4 py-3">
