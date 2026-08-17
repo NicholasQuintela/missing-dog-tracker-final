@@ -90,6 +90,12 @@ async function fetchCanonicalPhotoFromOrigin(canonicalPath: string): Promise<Del
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL
   if (!base) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL")
 
+  console.log(
+    "[PETALERT_ORIGIN_EXECUTED]",
+    canonicalPath,
+    new Date().toISOString(),
+  )
+
   const encodedPath = encodeStoragePath(canonicalPath)
   const response = await fetch(
     `${base}/storage/v1/object/public/${SUPABASE_BUCKET}/${encodedPath}`,
