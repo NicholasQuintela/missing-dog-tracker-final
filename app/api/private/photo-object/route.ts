@@ -76,14 +76,16 @@ async function signedR2Request(method: "PUT" | "DELETE", canonicalPath: string, 
   const host = requestUrl.host
   const contentType = method === "PUT" ? "image/webp" : null
 
-  let canonicalHeaders = `host:${host}\n`
-  let signedHeaders = "host"
-  if (contentType) {
-    canonicalHeaders += `content-type:${contentType}\n`
-    signedHeaders += ";content-type"
-  }
-  canonicalHeaders += `x-amz-content-sha256:${payloadHash}\n` + `x-amz-date:${amzDate}\n`
-  signedHeaders += ";x-amz-content-sha256;x-amz-date"
+  // SigV4 requires CanonicalHeaders and SignedHeaders to be sorted by
+  // lowercase header name. We intentionally sign only the required stable
+  // S3 headers here; Content-Type is still sent on PUT, but does not need
+  // to participate in the signature. This keeps PUT/DELETE signing aligned
+  // with the already-working R2 GET signer.
+  const canonicalHeaders =
+    `host:${host}\n` +
+    `x-amz-content-sha256:${payloadHash}\n` +
+    `x-amz-date:${amzDate}\n`
+  const signedHeaders = "host;x-amz-content-sha256;x-amz-date"
 
   const canonicalRequest = [method, canonicalUri, "", canonicalHeaders, signedHeaders, payloadHash].join("\n")
   const algorithm = "AWS4-HMAC-SHA256"
