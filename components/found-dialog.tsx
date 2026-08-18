@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import type { MissingDog } from "@/lib/types"
 import { MAX_IMAGE_INPUT_BYTES, optimizeImageForUpload } from "@/lib/image-optimization"
+import { deletePhotoFromR2, uploadPhotoToR2 } from "@/lib/r2-upload"
 
 type Props = {
   open: boolean
@@ -55,19 +56,20 @@ export function FoundDialog({ open, onClose, dog, onFound }: Props) {
       if (dog.owner_id === user.id) throw new Error("The report owner cannot use the finder action on their own report.")
       const optimized = await optimizeImageForUpload(photoFile)
       const path = `found/${user.id}/${crypto.randomUUID()}.webp`
-      const { error: upErr } = await supabase.storage.from("dog-photos").upload(path, optimized.file, { cacheControl: "31536000", contentType: "image/webp", upsert: false })
-      if (upErr) throw upErr
-      const { data: pub } = supabase.storage.from("dog-photos").getPublicUrl(path)
+      const uploaded = await uploadPhotoToR2(supabase, path, optimized.file)
 
       const { data, error: claimError } = await supabase.from("found_claims").insert({
         dog_id: dog.id,
         finder_id: user.id,
         finder_name: name.trim(),
         note: note.trim() || null,
-        photo_url: pub.publicUrl,
+        photo_url: uploaded.photoUrl,
         photo_path: path,
       }).select().single()
-      if (claimError) throw claimError
+      if (claimError) {
+        await deletePhotoFromR2(supabase, path).catch(() => undefined)
+        throw claimError
+      }
 
       alert("Your found claim was sent to the owner for confirmation.")
       onFound(dog, null)

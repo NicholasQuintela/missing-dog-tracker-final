@@ -30,6 +30,12 @@ function pathFromPublicUrl(publicUrl?: string | null) {
   if (!publicUrl) return null
   try {
     const url = new URL(publicUrl)
+    if (url.protocol === "r2:" && url.hostname === "dog-photos") {
+      return canonicalPhotoPath(url.pathname.replace(/^\//, ""))
+    }
+    if (url.pathname === "/api/public/photo") {
+      return canonicalPhotoPath(url.searchParams.get("path"))
+    }
     const marker = "/storage/v1/object/public/dog-photos/"
     const index = url.pathname.indexOf(marker)
     if (index === -1) return null

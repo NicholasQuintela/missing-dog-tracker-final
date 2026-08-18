@@ -10,6 +10,7 @@ import { LocationPicker, type AddressFields } from "@/components/location-picker
 import type { MissingDog } from "@/lib/types"
 import { REWARD_CURRENCIES } from "@/lib/currency"
 import { MAX_IMAGE_INPUT_BYTES, optimizeImageForUpload } from "@/lib/image-optimization"
+import { deletePhotoFromR2, uploadPhotoToR2 } from "@/lib/r2-upload"
 
 
 type Props = {
@@ -106,12 +107,8 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
         const optimized = await optimizeImageForUpload(photoFile)
         const path = `reports/${user.id}/${crypto.randomUUID()}.webp`
         photo_path = path
-        const { error: upErr } = await supabase.storage
-          .from("dog-photos")
-          .upload(path, optimized.file, { cacheControl: "31536000", contentType: "image/webp", upsert: false })
-        if (upErr) throw upErr
-        const { data } = supabase.storage.from("dog-photos").getPublicUrl(path)
-        photo_url = data.publicUrl
+        const uploaded = await uploadPhotoToR2(supabase, path, optimized.file)
+        photo_url = uploaded.photoUrl
       }
 
       const { data, error: insertErr } = await supabase
@@ -137,7 +134,10 @@ export function ReportDialog({ open, onClose, defaultCenter, onReported }: Props
         .select()
         .single()
 
-      if (insertErr) throw insertErr
+      if (insertErr) {
+        if (photo_path) await deletePhotoFromR2(supabase, photo_path).catch(() => undefined)
+        throw insertErr
+      }
 
       onReported(data as MissingDog)
       reset()
