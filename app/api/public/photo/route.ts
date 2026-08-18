@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic"
 function errorResponse(message: string, status: number) {
   return new Response(message, {
     status,
-    headers: { "Cache-Control": "no-store" },
+    headers: { "Cache-Control": "no-store", "Access-Control-Allow-Origin": "*" },
   })
 }
 
@@ -53,6 +53,7 @@ export async function GET(request: NextRequest) {
     return new Response(body, {
       status: 200,
       headers: {
+        "Access-Control-Allow-Origin": "*",
         "Content-Type": photo.contentType,
         "Content-Length": String(photo.bytes),
         "Cache-Control": `public, max-age=${BROWSER_TTL}, immutable`,

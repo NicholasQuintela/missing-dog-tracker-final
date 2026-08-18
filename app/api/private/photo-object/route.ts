@@ -10,6 +10,23 @@ const BUCKET = process.env.R2_BUCKET || "dog-photos"
 const MAX_UPLOAD_BYTES = 200 * 1024
 const ALLOWED_PREFIXES = new Set(["reports", "sightings", "found"])
 
+const MOBILE_CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+  "Access-Control-Max-Age": "86400",
+}
+
+function json(body: unknown, init?: ResponseInit) {
+  const response = NextResponse.json(body, init)
+  for (const [key, value] of Object.entries(MOBILE_CORS_HEADERS)) response.headers.set(key, value)
+  return response
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: MOBILE_CORS_HEADERS })
+}
+
 function sha256Hex(value: string | Buffer) {
   return createHash("sha256").update(value).digest("hex")
 }
@@ -117,18 +134,18 @@ async function signedR2Request(method: "PUT" | "DELETE", canonicalPath: string, 
 export async function POST(request: Request) {
   try {
     const user = await getAuthenticatedUser(request)
-    if (!user) return NextResponse.json({ error: "Please log in before uploading a photo." }, { status: 401 })
+    if (!user) return json({ error: "Please log in before uploading a photo." }, { status: 401 })
 
     const form = await request.formData()
     const file = form.get("file")
     const requestedPath = String(form.get("path") || "")
     const path = validateOwnedPhotoPath(requestedPath, user.id)
 
-    if (!path) return NextResponse.json({ error: "Invalid photo path." }, { status: 400 })
-    if (!(file instanceof File)) return NextResponse.json({ error: "Photo file is required." }, { status: 400 })
-    if (file.type !== "image/webp") return NextResponse.json({ error: "Only optimized WebP uploads are accepted." }, { status: 415 })
+    if (!path) return json({ error: "Invalid photo path." }, { status: 400 })
+    if (!(file instanceof File)) return json({ error: "Photo file is required." }, { status: 400 })
+    if (file.type !== "image/webp") return json({ error: "Only optimized WebP uploads are accepted." }, { status: 415 })
     if (file.size <= 0 || file.size > MAX_UPLOAD_BYTES) {
-      return NextResponse.json({ error: "Optimized photo must be 200 KB or smaller." }, { status: 413 })
+      return json({ error: "Optimized photo must be 200 KB or smaller." }, { status: 413 })
     }
 
     const buffer = Buffer.from(await file.arrayBuffer())
@@ -136,37 +153,37 @@ export async function POST(request: Request) {
     if (!response.ok) {
       const detail = await response.text().catch(() => "")
       console.error("[PETALERT_R2_UPLOAD_ERROR]", response.status, path, detail.slice(0, 500))
-      return NextResponse.json({ error: "R2 photo upload failed." }, { status: 502 })
+      return json({ error: "R2 photo upload failed." }, { status: 502 })
     }
 
     console.log("[PETALERT_R2_UPLOAD_OK]", path, buffer.byteLength)
     const publicPhotoUrl = `${new URL(request.url).origin}/api/public/photo?path=${encodeURIComponent(path)}`
-    return NextResponse.json({ ok: true, path, photoUrl: publicPhotoUrl })
+    return json({ ok: true, path, photoUrl: publicPhotoUrl })
   } catch (error) {
     console.error("[PETALERT_R2_UPLOAD_ERROR]", error)
-    return NextResponse.json({ error: "Unable to upload the photo right now." }, { status: 500 })
+    return json({ error: "Unable to upload the photo right now." }, { status: 500 })
   }
 }
 
 export async function DELETE(request: Request) {
   try {
     const user = await getAuthenticatedUser(request)
-    if (!user) return NextResponse.json({ error: "Please log in before deleting a photo." }, { status: 401 })
+    if (!user) return json({ error: "Please log in before deleting a photo." }, { status: 401 })
 
     const body = (await request.json()) as { path?: string }
     const path = validateOwnedPhotoPath(body.path || "", user.id)
-    if (!path) return NextResponse.json({ error: "Invalid photo path." }, { status: 400 })
+    if (!path) return json({ error: "Invalid photo path." }, { status: 400 })
 
     const response = await signedR2Request("DELETE", path)
     if (!response.ok && response.status !== 404) {
       console.error("[PETALERT_R2_DELETE_ERROR]", response.status, path)
-      return NextResponse.json({ error: "R2 photo deletion failed." }, { status: 502 })
+      return json({ error: "R2 photo deletion failed." }, { status: 502 })
     }
 
     console.log("[PETALERT_R2_DELETE_OK]", path)
-    return NextResponse.json({ ok: true })
+    return json({ ok: true })
   } catch (error) {
     console.error("[PETALERT_R2_DELETE_ERROR]", error)
-    return NextResponse.json({ error: "Unable to delete the photo right now." }, { status: 500 })
+    return json({ error: "Unable to delete the photo right now." }, { status: 500 })
   }
 }
