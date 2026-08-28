@@ -10,7 +10,6 @@ import { IS_DESKTOP_BUILD } from "@/lib/desktop"
 import { LocationPicker, type AddressFields } from "@/components/location-picker"
 import type { MissingDog, Sighting } from "@/lib/types"
 import { MAX_IMAGE_INPUT_BYTES, optimizeImageForUpload } from "@/lib/image-optimization"
-import { deletePhotoFromR2, uploadPhotoToR2 } from "@/lib/r2-upload"
 
 type Props = {
   open: boolean
@@ -158,8 +157,17 @@ export function SightingDialog({
         const optimized = await optimizeImageForUpload(photoFile)
         uploadedPhotoPath = `sightings/${user.id}/${crypto.randomUUID()}.webp`
 
-        const uploaded = await uploadPhotoToR2(supabase, uploadedPhotoPath, optimized.file)
-        photoUrl = uploaded.photoUrl
+        const { error: uploadError } = await supabase.storage
+          .from("dog-photos")
+          .upload(uploadedPhotoPath, optimized.file, {
+            cacheControl: "31536000",
+            contentType: "image/webp",
+            upsert: false,
+          })
+
+        if (uploadError) throw new Error(`Photo upload failed: ${uploadError.message}`)
+
+        photoUrl = supabase.storage.from("dog-photos").getPublicUrl(uploadedPhotoPath).data.publicUrl
       }
 
       const locationWasEntered = Boolean(
@@ -190,7 +198,7 @@ export function SightingDialog({
 
       if (insertError) {
         if (uploadedPhotoPath) {
-          await deletePhotoFromR2(supabase, uploadedPhotoPath).catch(() => undefined)
+          await supabase.storage.from("dog-photos").remove([uploadedPhotoPath])
           uploadedPhotoPath = null
         }
         throw insertError

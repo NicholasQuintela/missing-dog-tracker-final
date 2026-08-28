@@ -73,8 +73,13 @@ export default function DogMap({ dogs, sightings = [], selectedId, onSelect, onS
     <Marker key={`sighting-${sighting.id}`} position={[sighting.latitude, sighting.longitude]} icon={pinIcon("sighting", true)} eventHandlers={{ click: () => onSelectSighting?.(sighting) }} />
   )), [sightings, onSelectSighting])
 
+  const cartoApiKey = process.env.NEXT_PUBLIC_CARTO_API_KEY
+  const cartoTileUrl = cartoApiKey
+    ? `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${encodeURIComponent(cartoApiKey)}`
+    : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+
   return <MapContainer center={center} zoom={12} scrollWheelZoom className="h-full w-full" style={{ background: "oklch(0.95 0.015 75)", zIndex: 0 }}>
-    <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+    <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>' url={cartoTileUrl} />
     {dogMarkers}{sightingMarkers}
     {pickMode && pickedPoint && <Marker position={pickedPoint} icon={pinIcon(pickKind, true)} />}
     {privateUserPoint && privateUserAccuracy && <Circle center={privateUserPoint} radius={Math.max(privateUserAccuracy, 5)} pathOptions={{ color: "#2563eb", fillColor: "#60a5fa", fillOpacity: 0.14, weight: 1 }} interactive={false} />}
