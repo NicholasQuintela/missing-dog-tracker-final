@@ -159,7 +159,7 @@ export function ScanAPetLab() {
     setLoading(true)
     try {
       setStatus("Loading the on-device model. The first download is about 89 MB…")
-      const session = await loadModel(setDownloadProgress)
+      const session = await loadModel(onDownloadProgress)
       setModelReady(true)
       setStatus("Analyzing the first photo on this device…")
       const reference = await getEmbedding(session, referenceFile)
@@ -175,7 +175,7 @@ export function ScanAPetLab() {
     }
   }
 
-  function setDownloadProgress(progress: number | null) {
+  const onDownloadProgress = (progress: number | null) => {
     setDownloadProgress(progress)
     if (progress !== null) setStatus(`Downloading AI model: ${progress}%`)
     else setStatus("Downloading AI model…")
