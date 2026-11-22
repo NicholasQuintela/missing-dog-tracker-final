@@ -1,0 +1,10 @@
+DEPLOY FIX FOR VERCEL
+
+The package.json includes onnxruntime-web, but the existing pnpm-lock.yaml predates that dependency. Vercel's frozen-lockfile install therefore fails.
+
+This repository includes vercel.json setting the install command to:
+  pnpm install --no-frozen-lockfile
+
+This allows Vercel to resolve the newly added dependency during deployment without you needing to run Command Prompt locally.
+
+Upload/commit vercel.json to GitHub along with the repository files. If the same lockfile error persists, in Vercel Project Settings > Build & Development Settings, make sure Install Command is not overriding this setting. Remove any custom Install Command or set it to the command above.
