@@ -1,5 +1,5 @@
-import { ScanAPetLab } from "@/components/scan-a-pet-lab"
+import { redirect } from "next/navigation"
 
 export default function ScanAPetLabPage() {
-  return <ScanAPetLab />
+  redirect("/scan-a-pet")
 }
