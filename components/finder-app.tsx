@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
-import { PawPrint, Plus, Search, LocateFixed, User, Eye, ShieldCheck, Loader2 } from "lucide-react"
+import { PawPrint, Plus, Search, LocateFixed, User, Eye, ShieldCheck, Loader2, BrainCircuit } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DogCard } from "@/components/dog-card"
 import { ReportDialog } from "@/components/report-dialog"
@@ -232,6 +232,7 @@ export function FinderApp({ initialDogs, initialMapDogs, initialCounts, initialS
       <div className="flex items-center gap-2.5"><div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground"><PawPrint className="size-5" /></div><div><h1 className="font-serif text-lg font-extrabold">Pet Alert PH</h1><p className="hidden text-xs text-muted-foreground sm:block">Bringing lost pets home, together</p></div></div>
       <div className="flex items-center gap-2"><span className="hidden text-xs text-muted-foreground lg:block">{totalActiveDogs} reports · {sightings.length} sightings · {totalHelpers} helping</span>
         {adminRole && <Button variant="outline" onClick={() => window.open("/admin/moderation", "_blank", "noopener,noreferrer")}><ShieldCheck className="size-4" /><span className="hidden md:inline">Moderation</span></Button>} {user && <NotificationBell userId={user.id} />} {user ? <Button variant="outline" size="icon" className="rounded-full" onClick={() => setAccountOpen(true)}><User className="size-4" /></Button> : <Button variant="outline" onClick={() => setAuthOpen(true)}>Log in</Button>}
+        <Button type="button" variant="outline" onClick={() => { window.location.href = "/scan-a-pet-lab" }} aria-label="Scan a Pet" title="Scan a Pet"><BrainCircuit className="size-4" /><span className="hidden sm:inline">Scan a Pet</span></Button>
         <Button data-tour="report-sighting" type="button" variant="outline" onClick={() => requireLogin(() => { setSightingDogId(null); setSightingOpen(true) })}><Eye className="size-4" /><span className="hidden sm:inline">Report sighting</span></Button>
         <Button data-tour="report-missing" type="button" onClick={() => requireLogin(() => setReportOpen(true))} className="shrink min-w-0 px-3 sm:px-4"><Plus className="size-4 shrink-0" /><span className="hidden sm:inline truncate">Report missing pet</span><span className="sm:hidden truncate">Report</span></Button>
       </div>
