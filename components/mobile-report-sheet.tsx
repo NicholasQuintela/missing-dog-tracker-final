@@ -54,8 +54,8 @@ export function MobileReportSheet({ children }: { children: ReactNode }) {
 
   return (
     <section
-      className="absolute inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden rounded-t-[1.75rem] border-t bg-background shadow-[0_-12px_35px_rgba(0,0,0,0.18)] transition-[height] duration-200 md:hidden"
-      style={{ height: `${height}dvh`, paddingBottom: "env(safe-area-inset-bottom)" }}
+      className="absolute inset-x-0 bottom-[76px] z-30 flex flex-col overflow-hidden rounded-t-[1.75rem] border-t bg-background shadow-[0_-12px_35px_rgba(0,0,0,0.18)] transition-[height] duration-200 md:hidden"
+      style={{ height: `${height}dvh`, paddingBottom: "0px" }}
       aria-label="Reports panel"
     >
       <div

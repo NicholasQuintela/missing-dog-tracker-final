@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Eye, Plus } from "lucide-react"
+import { BrainCircuit, Eye, Plus } from "lucide-react"
 
 type Rect = { top: number; left: number; width: number; height: number }
 type Viewport = { width: number; height: number }
@@ -10,32 +10,34 @@ type Step = {
   selector: string
   title: string
   description: string
-  icon: "report" | "sighting"
+  icon: "scan" | "report" | "sighting"
 }
 
 const STEPS: Step[] = [
-  {
-    selector: '[data-tour="report-missing"]',
-    title: "Report your missing pet",
-    description: "Tap this button to create a missing-pet report and place its location on the map.",
-    icon: "report",
-  },
-  {
-    selector: '[data-tour="report-sighting"]',
-    title: "Report a sighting",
-    description: "Tap this button when you see a pet that may be missing. Your sighting will appear as a green pin.",
-    icon: "sighting",
-  },
+  { selector: '[data-tour="scan-pet"]', title: "Scan a Pet", description: "Upload one pet photo to find visually similar Missing Pet and Pet Sighting reports on Pet Alert PH.", icon: "scan" },
+  { selector: '[data-tour="report-missing"]', title: "Report a missing pet", description: "Create a missing-pet report so the community can help find your pet.", icon: "report" },
+  { selector: '[data-tour="report-sighting"]', title: "Report a sighting", description: "Share a photo and location when you spot a pet that may be missing.", icon: "sighting" },
 ]
 
 export function OnboardingTour() {
   const [stepIndex, setStepIndex] = useState(0)
+  const [started, setStarted] = useState(false)
   const [rect, setRect] = useState<Rect | null>(null)
   const [viewport, setViewport] = useState<Viewport>({ width: 1024, height: 768 })
 
-  const visible = stepIndex < STEPS.length
+  const visible = started && stepIndex < STEPS.length
   const step = STEPS[stepIndex] ?? STEPS[STEPS.length - 1]
   const isMobile = viewport.width <= 640
+
+  useEffect(() => {
+    try { if (localStorage.getItem("petalertph:mini-guide-complete") === "1") return } catch {}
+    const begin = () => {
+      setStarted(true)
+      window.removeEventListener("pointerdown", begin, true)
+    }
+    window.addEventListener("pointerdown", begin, true)
+    return () => window.removeEventListener("pointerdown", begin, true)
+  }, [])
 
   useEffect(() => {
     const updateViewport = () => {
@@ -119,7 +121,13 @@ export function OnboardingTour() {
 
   if (!visible) return null
 
-  const advance = () => setStepIndex((current) => current + 1)
+  const advance = () => setStepIndex((current) => {
+    const next = current + 1
+    if (next >= STEPS.length) {
+      try { localStorage.setItem("petalertph:mini-guide-complete", "1") } catch {}
+    }
+    return next
+  })
 
   return (
     <div
@@ -159,7 +167,7 @@ export function OnboardingTour() {
 
         <div className="relative flex items-start gap-3">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground sm:size-11">
-            {step.icon === "report" ? <Plus className="size-5 sm:size-6" /> : <Eye className="size-5 sm:size-6" />}
+            {step.icon === "scan" ? <BrainCircuit className="size-5 sm:size-6" /> : step.icon === "report" ? <Plus className="size-5 sm:size-6" /> : <Eye className="size-5 sm:size-6" />}
           </div>
           <div className="min-w-0">
             <p className="font-serif text-base font-extrabold sm:text-lg">{step.title}</p>
@@ -169,7 +177,7 @@ export function OnboardingTour() {
 
         <div className="relative mt-3 flex items-center justify-between gap-3 text-[11px] text-muted-foreground sm:mt-4 sm:text-xs">
           <span className="shrink-0">{stepIndex + 1} of {STEPS.length}</span>
-          <span className="text-right font-medium text-foreground">Tap anywhere to continue</span>
+          <span className="text-right font-medium text-foreground">{stepIndex === STEPS.length - 1 ? "Tap to finish" : "Tap anywhere to continue"}</span>
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import { ModerationCenter } from "@/components/moderation-center"
+import { AnnouncementAdminPanel } from "@/components/announcement-admin-panel"
 
 export const dynamic = "force-dynamic"
 
@@ -34,6 +35,6 @@ export default async function ModerationPage() {
 
   return <main className="min-h-dvh bg-background">
     <header className="border-b bg-card"><div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4"><div><h1 className="text-2xl font-extrabold">Pet Alert PH Moderation</h1><p className="text-sm text-muted-foreground">Admin and super-admin management center</p></div><Link href="/" className="rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-muted">Back to map</Link></div></header>
-    <div className="mx-auto max-w-6xl p-4 sm:p-6"><ModerationCenter initialItems={(abuseResult.data || []) as never[]} initialBugs={(bugResult.data || []) as never[]} stats={stats} role={role}/></div>
+    <div className="mx-auto max-w-6xl p-4 sm:p-6"><ModerationCenter initialItems={(abuseResult.data || []) as never[]} initialBugs={(bugResult.data || []) as never[]} stats={stats} role={role}/><AnnouncementAdminPanel/></div>
   </main>
 }

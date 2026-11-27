@@ -11,8 +11,8 @@ export function TermsSafetyButton() {
   const [open, setOpen] = useState(false)
   const [bugOpen, setBugOpen] = useState(false)
   return <>
-    <button type="button" onClick={() => setOpen(true)} className="fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-4 z-[1500] flex size-11 items-center justify-center rounded-full border bg-card text-primary shadow-lg hover:bg-muted md:right-0 md:top-1/2 md:bottom-auto md:size-auto md:-translate-y-1/2 md:rounded-l-xl md:rounded-r-none md:border-r-0 md:px-2 md:py-3 md:text-xs md:font-bold md:[writing-mode:vertical-rl]" aria-label="Terms and safety">
-      <ShieldCheck className="size-5 md:hidden"/><span className="sr-only md:not-sr-only">Terms & Safety</span>
+    <button type="button" onClick={() => setOpen(true)} className="fixed bottom-[calc(env(safe-area-inset-bottom)+6rem)] right-4 z-[1500] flex size-11 items-center justify-center rounded-full border bg-card text-primary shadow-lg hover:bg-muted md:right-4 md:top-auto md:bottom-24 md:size-auto md:rounded-xl md:px-3 md:py-2 md:text-xs md:font-bold" aria-label="Terms and safety">
+      <ShieldCheck className="size-5 shrink-0"/><span className="ml-2 hidden md:inline">Terms, Privacy & Safety</span>
     </button>
     <Modal open={open} onClose={() => setOpen(false)} title="Terms, privacy & safety" description="Important reminders for using Pet Alert PH responsibly.">
       <div className="space-y-4 text-sm leading-relaxed">
